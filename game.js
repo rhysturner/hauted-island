@@ -26,25 +26,88 @@ const COLOUR = {
   [ROCK]:   '#616161',
 };
 
-// ── Map layout (20×14 grid) ───────────────────────────────────────────────────
-// 0=water 1=sand 2=grass 3=tree 4=rock
-// prettier-ignore
-const MAP_TEMPLATE = [
-  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-  [0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,0],
-  [0,1,1,2,2,2,1,1,0,0,1,1,2,2,1,1,0,0,0,0],
-  [0,1,2,2,3,2,2,1,0,0,1,2,2,3,2,1,0,0,0,0],
-  [0,1,1,2,2,2,2,1,1,1,1,2,2,2,1,1,0,0,0,0],
-  [0,0,1,1,2,2,2,2,2,2,2,2,2,1,1,0,0,0,0,0],
-  [0,0,0,1,2,3,2,2,2,2,2,2,2,2,1,1,0,0,0,0],
-  [0,0,1,1,2,2,2,4,2,2,4,2,2,2,2,1,1,0,0,0],
-  [0,1,1,2,2,2,2,2,2,2,2,2,2,2,1,1,0,0,0,0],
-  [0,1,2,2,3,2,2,2,2,2,2,2,3,2,1,1,0,0,0,0],
-  [0,1,1,2,2,2,2,2,2,2,2,2,2,1,1,0,0,0,0,0],
-  [0,0,1,1,2,2,2,2,2,2,2,2,1,1,0,0,0,0,0,0],
-  [0,0,0,1,1,1,2,1,1,1,1,1,1,0,0,0,0,0,0,0],
-  [0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0],
-];
+// ── Map layout ────────────────────────────────────────────────────────────────
+// currentMap is a 20×14 grid of tile IDs (0=water 1=sand 2=grass 3=tree 4=rock).
+// It is regenerated each time a new game starts via generateMap().
+let currentMap = null;
+
+// ── Procedural map generator ──────────────────────────────────────────────────
+function generateMap() {
+  const map = Array.from({ length: ROWS }, () => Array(COLS).fill(WATER));
+
+  // Pick a random island centre, keeping a water border around the edges
+  const cx = 4 + Math.random() * (COLS - 8);
+  const cy = 3 + Math.random() * (ROWS - 6);
+
+  // Irregular island shape: a circular base distorted by sinusoidal lobes
+  const baseRadius = 4.5 + Math.random() * 2.0;      // overall size (tiles)
+  const numLobes   = 3 + Math.floor(Math.random() * 4); // 3–6 lobes
+  const lobeAmp    = 0.5 + Math.random() * 1.2;       // lobe depth
+  const rotation   = Math.random() * Math.PI * 2;     // rotate the pattern
+  const xStretch   = 0.9 + Math.random() * 0.5;       // horizontal stretch
+
+  for (let row = 0; row < ROWS; row++) {
+    for (let col = 0; col < COLS; col++) {
+      const dx    = (col - cx) / xStretch;
+      const dy    = row - cy;
+      const d     = Math.sqrt(dx * dx + dy * dy);
+      const angle = Math.atan2(dy, dx);
+      const r     = baseRadius + lobeAmp * Math.sin(angle * numLobes + rotation);
+
+      if (d < r - 1.0)      map[row][col] = GRASS;
+      else if (d < r + 1.2) map[row][col] = SAND;
+    }
+  }
+
+  // Scatter trees and rocks across grass tiles
+  const treeChance = 0.08 + Math.random() * 0.06; // 8–14 %
+  const rockChance = 0.04 + Math.random() * 0.04; // 4–8 %
+  for (let row = 0; row < ROWS; row++) {
+    for (let col = 0; col < COLS; col++) {
+      if (map[row][col] === GRASS) {
+        const r = Math.random();
+        if      (r < treeChance)              map[row][col] = TREE;
+        else if (r < treeChance + rockChance) map[row][col] = ROCK;
+      }
+    }
+  }
+
+  return map;
+}
+
+// Return pixel top-left coords of every walkable tile in currentMap
+function getWalkableTiles() {
+  const tiles = [];
+  for (let row = 0; row < ROWS; row++) {
+    for (let col = 0; col < COLS; col++) {
+      if (isWalkable(col, row)) tiles.push({ x: col * TILE, y: row * TILE });
+    }
+  }
+  return tiles;
+}
+
+// Return a random walkable position at least minDist pixels from every point in occupied[].
+// occupied entries must have { cx, cy } (pixel centre coords).
+function randomWalkablePos(walkable, minDist, occupied) {
+  // Fisher-Yates shuffle for unbiased randomisation
+  const shuffled = walkable.slice();
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  for (const t of shuffled) {
+    const cx = t.x + TILE / 2;
+    const cy = t.y + TILE / 2;
+    const ok = occupied.every(o => {
+      const dx = o.cx - cx, dy = o.cy - cy;
+      return Math.sqrt(dx * dx + dy * dy) >= minDist;
+    });
+    if (ok) return { x: t.x, y: t.y, cx, cy };
+  }
+  // Fallback: accept any walkable tile
+  const t = shuffled[0] || { x: TILE, y: TILE };
+  return { x: t.x, y: t.y, cx: t.x + TILE / 2, cy: t.y + TILE / 2 };
+}
 
 // ── Item types ────────────────────────────────────────────────────────────────
 const ITEMS = [
@@ -52,6 +115,12 @@ const ITEMS = [
   { type: 'torch',       label: 'Torch',        emoji: '🔦', range: 55 },
   { type: 'dagger',      label: 'Silver Dagger', emoji: '🗡️', range: 50 },
 ];
+
+// ── Spawn-spacing constants ───────────────────────────────────────────────────
+const SKELETON_MIN_DIST = 5 * TILE;  // min px between skeleton spawns (and from player)
+const PICKUP_MIN_DIST   = 2 * TILE;  // min px between pickup spawns
+// Minimum walkable tiles needed: 1 player + 5 skeletons + 8 max pickups + margin
+const MIN_WALKABLE_TILES = 30;
 
 // ── Game state ────────────────────────────────────────────────────────────────
 let state;        // 'menu' | 'play' | 'dead' | 'win'
@@ -76,7 +145,8 @@ function makePlayerStub() {
 // ── Utility ───────────────────────────────────────────────────────────────────
 function tileAt(tx, ty) {
   if (tx < 0 || ty < 0 || tx >= COLS || ty >= ROWS) return WATER;
-  return MAP_TEMPLATE[ty][tx];
+  if (!currentMap) return WATER;
+  return currentMap[ty][tx];
 }
 
 function isWalkable(tx, ty) {
@@ -182,48 +252,68 @@ function pickPatrolTarget(sk) {
   sk.patrol.timer = 2;
 }
 
-// ── Pickups ───────────────────────────────────────────────────────────────────
-function makePickups() {
-  const positions = [
-    [7, 9], [11, 4], [13, 9], [5, 4], [9, 7], [12, 11],
-  ];
-  return positions.map(([tx, ty], i) => ({
-    x: tx * TILE + TILE / 2,
-    y: ty * TILE + TILE / 2,
-    ...ITEMS[i % ITEMS.length],
-    collected: false,
-  }));
-}
-
 // ── Init game ─────────────────────────────────────────────────────────────────
 function initGame() {
-  player   = makePlayer();
   animTick = 0;
   keys     = {};
 
   // Reset dialogue state in case a game was restarted mid-conversation
   closeDialogue();
 
-  // Scatter skeletons on walkable tiles away from player spawn
-  const skelPositions = [
-    [14 * TILE, 3 * TILE],
-    [12 * TILE, 9 * TILE],
-    [4  * TILE, 10 * TILE],
-    [10 * TILE, 6 * TILE],
-    [7  * TILE, 3 * TILE],
-  ];
-  skeletons = skelPositions.map(([x, y], i) =>
-    makeSkeleton(x, y, SKELETON_DATA[i].name, SKELETON_DATA[i].personality)
-  );
-  // Guarantee at least one hostile skeleton so the game is never trivially won at start
+  // ── Generate a fresh random island map ──────────────────────────────────────
+  // Regenerate until the island has enough walkable space for all entities
+  let walkable = [];
+  do {
+    currentMap = generateMap();
+    walkable   = getWalkableTiles();
+  } while (walkable.length < MIN_WALKABLE_TILES);
+
+  const occupied = [];  // accumulates { cx, cy } for already-placed entities
+
+  // ── Place player near the walkable tile closest to the map centre ────────────
+  const mapCX = (COLS / 2) * TILE;
+  const mapCY = (ROWS / 2) * TILE;
+  const centerTile = walkable.reduce((best, t) => {
+    const da = Math.abs(t.x + TILE / 2 - mapCX) + Math.abs(t.y + TILE / 2 - mapCY);
+    const db = Math.abs(best.x + TILE / 2 - mapCX) + Math.abs(best.y + TILE / 2 - mapCY);
+    return da < db ? t : best;
+  });
+  const pad = (TILE - 28) / 2;
+  player    = makePlayer();
+  player.x  = centerTile.x + pad;
+  player.y  = centerTile.y + pad;
+  player.px = player.x;
+  player.py = player.y;
+  occupied.push({ cx: centerTile.x + TILE / 2, cy: centerTile.y + TILE / 2 });
+
+  // ── Place skeletons at random walkable positions far from player/each other ──
+  skeletons = SKELETON_DATA.map(({ name, personality }) => {
+    const pos = randomWalkablePos(walkable, SKELETON_MIN_DIST, occupied);
+    occupied.push({ cx: pos.cx, cy: pos.cy });
+    return makeSkeleton(pos.x + pad, pos.y + pad, name, personality);
+  });
+
+  // Guarantee at least one hostile skeleton so the game is never trivially won
   if (skeletons.every(s => s.alignment === 'good')) {
     skeletons[Math.floor(Math.random() * skeletons.length)].alignment = 'bad';
   }
   skeletons.forEach(pickPatrolTarget);
 
-  pickups = makePickups();
+  // ── Place pickups at random walkable positions ───────────────────────────────
+  const numPickups = 5 + Math.floor(Math.random() * 4); // 5–8 per run
+  pickups = [];
+  for (let i = 0; i < numPickups; i++) {
+    const pos = randomWalkablePos(walkable, PICKUP_MIN_DIST, occupied);
+    occupied.push({ cx: pos.cx, cy: pos.cy });
+    pickups.push({
+      x: pos.cx,
+      y: pos.cy,
+      ...ITEMS[i % ITEMS.length],
+      collected: false,
+    });
+  }
 
-  keys = {};
+  keys  = {};
   state = 'play';
   updateHUD();
 }
@@ -876,7 +966,7 @@ function draw() {
 function drawMap() {
   for (let row = 0; row < ROWS; row++) {
     for (let col = 0; col < COLS; col++) {
-      const t = MAP_TEMPLATE[row][col];
+      const t = currentMap ? currentMap[row][col] : WATER;
       const x = col * TILE, y = row * TILE;
 
       ctx.fillStyle = COLOUR[t] || '#000';
