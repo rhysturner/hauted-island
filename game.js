@@ -389,34 +389,34 @@ async function callGemini(sk, apiKey) {
 
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent',
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'x-goog-api-key': apiKey,
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: { maxOutputTokens: 120, temperature: 1.0 },
         }),
       }
     );
-
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      const msg = err?.error?.message || `API error ${res.status}`;
-      // If the key is invalid/expired, clear it so the user is prompted again
       if (res.status === 400 || res.status === 401 || res.status === 403) {
         localStorage.removeItem(LS_KEY);
       }
+      const errBody = await res.json().catch(() => ({}));
+      const msg = errBody?.error?.message || res.statusText;
       setDialogueText(`[${msg}]`);
       return;
     }
-
     const data = await res.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
-      || '…the skeleton says nothing.';
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '…the skeleton says nothing.';
     setDialogueText(text);
-  } catch (_) {
-    setDialogueText('…the skeleton\'s jaw moves but makes no sound.');
+  } catch (err) {
+    const msg = err?.message || '…the skeleton\'s jaw moves but makes no sound.';
+    setDialogueText(`[${msg}]`);
   }
 }
 
