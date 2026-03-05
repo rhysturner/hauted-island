@@ -60,6 +60,7 @@ let skeletons = [];
 let pickups   = [];
 let keys      = {};
 let animTick  = 0;
+let inDanger  = false;   // true while any skeleton is actively chasing the player
 
 // ── Dialogue state ────────────────────────────────────────────────────────────
 let dialogueActive   = false;   // true while a skeleton dialogue is open
@@ -225,6 +226,8 @@ function initGame() {
 
   keys = {};
   state = 'play';
+  inDanger = false;
+  window.soundtrack?.play('peaceful');
   updateHUD();
 }
 
@@ -259,6 +262,8 @@ function hideOverlay() {
 }
 
 startBtn.addEventListener('click', () => {
+  // Initialise Strudel audio engine on first user interaction (required by browsers).
+  window.soundtrack?.init();
   initGame();
   hideOverlay();
 });
@@ -642,6 +647,7 @@ function checkWin() {
   // Win when every skeleton is either dead or friendly (good alignment)
   if (skeletons.every(s => !s.alive || s.alignment === 'good')) {
     state = 'win';
+    window.soundtrack?.play('win');
     const allDead = skeletons.every(s => !s.alive);
     showOverlay('🎉 You Escaped!', '#ffe066',
       allDead
@@ -766,6 +772,7 @@ function update(ts) {
             updateHUD();
             if (player.hp === 0) {
               state = 'dead';
+              window.soundtrack?.play('dead');
               showOverlay('💀 You Died!', '#ff4444',
                 'The skeletons have claimed another soul.<br/>Better luck next time…',
                 'Try Again');
@@ -818,6 +825,13 @@ function update(ts) {
     }
   }
 
+
+  // ── Adaptive soundtrack ────────────────────────────────────────────────────
+  const nowInDanger = skeletons.some(sk => sk.alive && sk.mode === 'chase');
+  if (nowInDanger !== inDanger) {
+    inDanger = nowInDanger;
+    window.soundtrack?.play(inDanger ? 'danger' : 'peaceful');
+  }
 
   draw();
   requestAnimationFrame(update);
