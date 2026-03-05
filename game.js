@@ -1,4 +1,5 @@
 // ─── Haunted Island – main game script ───────────────────────────────────────
+import { GoogleGenAI } from "@google/genai";
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -351,35 +352,22 @@ async function callGemini(sk, apiKey) {
     `Do not use asterisks, stage directions, or quotation marks.`;
 
   try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 120, temperature: 1.0 },
-        }),
-      }
-    );
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      const msg = err?.error?.message || `API error ${res.status}`;
-      // If the key is invalid/expired, clear it so the user is prompted again
-      if (res.status === 400 || res.status === 401 || res.status === 403) {
-        localStorage.removeItem(LS_KEY);
-      }
-      setDialogueText(`[${msg}]`);
-      return;
-    }
-
-    const data = await res.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
-      || '…the skeleton says nothing.';
+    const ai = new GoogleGenAI({ apiKey });
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.0-flash-lite',
+      contents: prompt,
+      config: { maxOutputTokens: 120, temperature: 1.0 },
+    });
+    const text = response.text?.trim() || '…the skeleton says nothing.';
     setDialogueText(text);
-  } catch (_) {
-    setDialogueText('…the skeleton\'s jaw moves but makes no sound.');
+  } catch (err) {
+    const msg = err?.message || '';
+    const status = err?.status ?? err?.code ?? 0;
+    if (status === 400 || status === 401 || status === 403 ||
+        msg.includes('API_KEY') || msg.includes('INVALID') || msg.includes('PERMISSION')) {
+      localStorage.removeItem(LS_KEY);
+    }
+    setDialogueText(`[${msg || '…the skeleton\'s jaw moves but makes no sound.'}]`);
   }
 }
 
