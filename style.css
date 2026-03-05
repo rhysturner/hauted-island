@@ -1,0 +1,120 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #0a0a0f;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  font-family: 'Courier New', Courier, monospace;
+  color: #e0e0e0;
+  overflow: hidden;
+}
+
+h1 {
+  font-size: 2.4rem;
+  color: #b06fff;
+  text-shadow: 0 0 18px #7a00ff, 0 0 6px #fff;
+  letter-spacing: 3px;
+  margin-bottom: 10px;
+}
+
+#hud {
+  display: flex;
+  gap: 30px;
+  margin-bottom: 8px;
+  font-size: 1rem;
+  color: #d0d0e8;
+  align-items: center;
+}
+
+#hud span {
+  background: rgba(80, 0, 120, 0.35);
+  border: 1px solid #5a2a8a;
+  border-radius: 6px;
+  padding: 4px 14px;
+}
+
+#hud .hearts {
+  color: #ff4444;
+  font-size: 1.2rem;
+  letter-spacing: 3px;
+}
+
+#hud .item-slot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#canvas-wrap {
+  position: relative;
+}
+
+#gameCanvas {
+  border: 3px solid #4a1a7a;
+  border-radius: 4px;
+  box-shadow: 0 0 40px rgba(100, 0, 200, 0.5);
+  display: block;
+}
+
+#overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 2, 15, 0.82);
+  border-radius: 2px;
+  text-align: center;
+  padding: 30px;
+}
+
+#overlay.hidden {
+  display: none;
+}
+
+#overlay h2 {
+  font-size: 2rem;
+  margin-bottom: 14px;
+  text-shadow: 0 0 14px currentColor;
+}
+
+#overlay p {
+  font-size: 1rem;
+  color: #b0b0c8;
+  line-height: 1.7;
+  margin-bottom: 20px;
+  max-width: 400px;
+}
+
+#overlay button {
+  background: #5a007a;
+  color: #fff;
+  border: 2px solid #a040ff;
+  padding: 10px 30px;
+  font-size: 1.1rem;
+  font-family: inherit;
+  border-radius: 6px;
+  cursor: pointer;
+  text-shadow: 0 0 8px #df9fff;
+  box-shadow: 0 0 18px #8800cc;
+  transition: background 0.2s;
+}
+
+#overlay button:hover {
+  background: #7a00aa;
+}
+
+#controls-hint {
+  margin-top: 10px;
+  font-size: 0.78rem;
+  color: #6060a0;
+  letter-spacing: 1px;
+}
