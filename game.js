@@ -351,22 +351,35 @@ async function callGemini(sk, apiKey) {
     `Do not use asterisks, stage directions, or quotation marks.`;
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash-lite',
-      contents: prompt,
-      config: { maxOutputTokens: 120, temperature: 1.0 },
-    });
-    const text = response.text?.trim() || '…the skeleton says nothing.';
+    const res = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent',
+      {
+        method: 'POST',
+        headers: {
+          'x-goog-api-key': apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens: 120, temperature: 1.0 },
+        }),
+      }
+    );
+    if (!res.ok) {
+      if (res.status === 400 || res.status === 401 || res.status === 403) {
+        localStorage.removeItem(LS_KEY);
+      }
+      const errBody = await res.json().catch(() => ({}));
+      const msg = errBody?.error?.message || res.statusText;
+      setDialogueText(`[${msg}]`);
+      return;
+    }
+    const data = await res.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '…the skeleton says nothing.';
     setDialogueText(text);
   } catch (err) {
-    const msg = err?.message || '';
-    const status = err?.status ?? err?.code ?? 0;
-    if (status === 400 || status === 401 || status === 403 ||
-        msg.includes('API_KEY') || msg.includes('INVALID') || msg.includes('PERMISSION')) {
-      localStorage.removeItem(LS_KEY);
-    }
-    setDialogueText(`[${msg || '…the skeleton\'s jaw moves but makes no sound.'}]`);
+    const msg = err?.message || '…the skeleton\'s jaw moves but makes no sound.';
+    setDialogueText(`[${msg}]`);
   }
 }
 
