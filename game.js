@@ -61,6 +61,11 @@ let pickups   = [];
 let keys      = {};
 let animTick  = 0;
 
+// ── Dialogue state ────────────────────────────────────────────────────────────
+let dialogueActive   = false;   // true while a skeleton dialogue is open
+let dialogueSkeleton = null;    // skeleton currently being spoken to
+let dialogueLoading  = false;   // true while awaiting LLM response
+
 // Minimal stub so the draw loop is safe before game starts
 function makePlayerStub() {
   return { x: 5.5 * TILE, y: 8 * TILE, w: 28, h: 28, hp: 3, maxHp: 3,
@@ -123,8 +128,18 @@ const SKEL_SPEED_CHASE  = 90;
 const SKEL_SIGHT        = 160;  // px
 const SKEL_ATTACK_RANGE = 24;   // px (edge-to-edge)
 const SKEL_ATTACK_CD    = 1.2;  // seconds between attacks
+const SKEL_TALK_RANGE   = 72;   // px — must be within this distance to talk
 
-function makeSkeleton(x, y) {
+// Each skeleton's unique identity for LLM prompting
+const SKELETON_DATA = [
+  { name: 'Captain Malgrath',  personality: 'imperious and commanding, mourning your sunken fleet' },
+  { name: 'Sister Orvaine',    personality: 'eerie and philosophical, speaking with unsettling calm about death' },
+  { name: 'Old Barnacle Pete', personality: 'jovial and darkly humorous about your bones and undead state' },
+  { name: 'The Pale Scholar',  personality: 'cryptic and scholarly, speaking in riddles about the island\'s curse' },
+  { name: 'Wailing Brigitte',  personality: 'melancholic and sorrowful, longing desperately for the living world' },
+];
+
+function makeSkeleton(x, y, name, personality) {
   return {
     x, y,
     px: x, py: y,
@@ -134,6 +149,8 @@ function makeSkeleton(x, y) {
     attackTimer: 0,
     alive: true,
     flashTimer: 0,
+    name:        name        || 'Unknown Skeleton',
+    personality: personality || 'mysterious and silent',
   };
 }
 
@@ -177,14 +194,20 @@ function initGame() {
   animTick = 0;
   keys     = {};
 
+  // Reset dialogue state in case a game was restarted mid-conversation
+  closeDialogue();
+
   // Scatter skeletons on walkable tiles away from player spawn
-  skeletons = [
-    makeSkeleton(14 * TILE, 3 * TILE),
-    makeSkeleton(12 * TILE, 9 * TILE),
-    makeSkeleton(4  * TILE, 10 * TILE),
-    makeSkeleton(10 * TILE, 6 * TILE),
-    makeSkeleton(7  * TILE, 3 * TILE),
+  const skelPositions = [
+    [14 * TILE, 3 * TILE],
+    [12 * TILE, 9 * TILE],
+    [4  * TILE, 10 * TILE],
+    [10 * TILE, 6 * TILE],
+    [7  * TILE, 3 * TILE],
   ];
+  skeletons = skelPositions.map(([x, y], i) =>
+    makeSkeleton(x, y, SKELETON_DATA[i].name, SKELETON_DATA[i].personality)
+  );
   skeletons.forEach(pickPatrolTarget);
 
   pickups = makePickups();
@@ -229,13 +252,172 @@ startBtn.addEventListener('click', () => {
   hideOverlay();
 });
 
+// ── Dialogue UI ───────────────────────────────────────────────────────────────
+const dialoguePanel  = document.getElementById('dialogue-panel');
+const dialogueName   = document.getElementById('dialogue-name');
+const dialogueText   = document.getElementById('dialogue-text');
+
+function openDialogue(sk) {
+  dialogueActive   = true;
+  dialogueSkeleton = sk;
+  dialogueLoading  = true;
+  dialogueName.textContent = sk.name;
+  dialogueText.textContent = '';
+  dialogueText.classList.add('loading');
+  dialoguePanel.classList.remove('hidden');
+}
+
+function closeDialogue() {
+  dialogueActive   = false;
+  dialogueSkeleton = null;
+  dialogueLoading  = false;
+  dialogueText.classList.remove('loading');
+  dialoguePanel.classList.add('hidden');
+}
+
+function setDialogueText(text) {
+  dialogueLoading = false;
+  dialogueText.classList.remove('loading');
+  dialogueText.textContent = text;
+}
+
+// ── API key modal ─────────────────────────────────────────────────────────────
+const apiKeyModal  = document.getElementById('api-key-modal');
+const apiKeyInput  = document.getElementById('api-key-input');
+const apiKeySave   = document.getElementById('api-key-save');
+const apiKeyCancel = document.getElementById('api-key-cancel');
+const LS_KEY       = 'hauted-island-gemini-key';
+
+function showApiKeyModal(onSave) {
+  apiKeyInput.value = '';
+  apiKeyModal.classList.remove('hidden');
+  apiKeyInput.focus();
+
+  function handleSave() {
+    const key = apiKeyInput.value.trim();
+    if (!key) return;
+    localStorage.setItem(LS_KEY, key);
+    apiKeyModal.classList.add('hidden');
+    cleanup();
+    onSave(key);
+  }
+
+  function handleCancel() {
+    apiKeyModal.classList.add('hidden');
+    cleanup();
+    closeDialogue();
+  }
+
+  function handleKeydown(e) {
+    if (e.key === 'Enter') handleSave();
+    if (e.key === 'Escape') handleCancel();
+    e.stopPropagation();   // don't let game keydown handler see these
+  }
+
+  function cleanup() {
+    apiKeySave  .removeEventListener('click',   handleSave);
+    apiKeyCancel.removeEventListener('click',   handleCancel);
+    apiKeyModal .removeEventListener('keydown', handleKeydown);
+  }
+
+  apiKeySave  .addEventListener('click',   handleSave);
+  apiKeyCancel.addEventListener('click',   handleCancel);
+  apiKeyModal .addEventListener('keydown', handleKeydown);
+}
+
+// ── LLM dialogue fetch ────────────────────────────────────────────────────────
+async function fetchSkeletonDialogue(sk) {
+  let apiKey = localStorage.getItem(LS_KEY);
+
+  if (!apiKey) {
+    openDialogue(sk);
+    showApiKeyModal(key => {
+      apiKey = key;
+      callGemini(sk, apiKey);
+    });
+    return;
+  }
+
+  openDialogue(sk);
+  callGemini(sk, apiKey);
+}
+
+async function callGemini(sk, apiKey) {
+  const prompt =
+    `You are ${sk.name}, a skeleton NPC haunting a cursed island in a browser game. ` +
+    `Your personality: ${sk.personality}. ` +
+    `A traveller has approached you and wants to talk. ` +
+    `Respond in character in 1–2 short sentences. ` +
+    `Do not use asterisks, stage directions, or quotation marks.`;
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens: 120, temperature: 1.0 },
+        }),
+      }
+    );
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const msg = err?.error?.message || `API error ${res.status}`;
+      // If the key is invalid/expired, clear it so the user is prompted again
+      if (res.status === 400 || res.status === 401 || res.status === 403) {
+        localStorage.removeItem(LS_KEY);
+      }
+      setDialogueText(`[${msg}]`);
+      return;
+    }
+
+    const data = await res.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
+      || '…the skeleton says nothing.';
+    setDialogueText(text);
+  } catch (_) {
+    setDialogueText('…the skeleton\'s jaw moves but makes no sound.');
+  }
+}
+
+// ── Talk to nearby skeleton ───────────────────────────────────────────────────
+function talkToSkeleton() {
+  if (dialogueActive) { closeDialogue(); return; }
+
+  // Find closest living skeleton within talk range
+  let target = null;
+  let best   = Infinity;
+  const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+  for (const sk of skeletons) {
+    if (!sk.alive) continue;
+    const d = dist(pc, { x: sk.x + sk.w / 2, y: sk.y + sk.h / 2 });
+    if (d < SKEL_TALK_RANGE && d < best) { best = d; target = sk; }
+  }
+
+  if (target) fetchSkeletonDialogue(target);
+}
+
 // ── Input ─────────────────────────────────────────────────────────────────────
 window.addEventListener('keydown', e => {
+  // Close dialogue on any key (unless the API key modal is open)
+  if (dialogueActive && !dialogueLoading && apiKeyModal.classList.contains('hidden')) {
+    closeDialogue();
+    return;
+  }
+
   keys[e.key.toLowerCase()] = true;
 
   // Use held item
-  if (e.key.toLowerCase() === 'f' && state === 'play') {
+  if (e.key.toLowerCase() === 'f' && state === 'play' && !dialogueActive) {
     useItem();
+  }
+
+  // Talk to skeleton
+  if (e.key.toLowerCase() === 't' && state === 'play') {
+    talkToSkeleton();
   }
 });
 window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
@@ -286,9 +468,9 @@ function update(ts) {
   lastTime = ts;
   animTick += dt;
 
-  if (state !== 'play') {
-    requestAnimationFrame(update);
+  if (state !== 'play' || dialogueActive) {
     draw();
+    requestAnimationFrame(update);
     return;
   }
 
@@ -603,6 +785,20 @@ function drawSkeletons() {
       ctx.arc(sx, sy, SKEL_SIGHT, 0, Math.PI * 2);
       ctx.stroke();
       ctx.globalAlpha = 1;
+    }
+
+    // "[T] Talk" label when player is within talk range
+    if (!dialogueActive && state === 'play') {
+      const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
+      if (dist(pc, { x: sx, y: sy }) < SKEL_TALK_RANGE) {
+        ctx.font = 'bold 10px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillStyle = '#ffe066';
+        ctx.globalAlpha = 0.85 + 0.15 * Math.sin(animTick * 4);
+        ctx.fillText('[T] Talk', sx, sk.y - 4);
+        ctx.globalAlpha = 1;
+      }
     }
   }
 }

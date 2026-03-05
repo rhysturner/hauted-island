@@ -27,10 +27,28 @@
         Collect <strong>holy water</strong> ⚗️, <strong>torches</strong> 🔦,
         and <strong>silver daggers</strong> 🗡️ scattered across the island.
         Press <strong>F</strong> to use your held item on a nearby skeleton and destroy it.<br/><br/>
+        Press <strong>T</strong> to talk to a nearby skeleton — they might have something to say…<br/><br/>
         Destroy <em>all</em> skeletons to escape the island!
       </p>
       <button id="startBtn">Start Game</button>
-      <div id="controls-hint">WASD / Arrow Keys to move &nbsp;|&nbsp; F to use item</div>
+      <div id="controls-hint">WASD / Arrow Keys to move &nbsp;|&nbsp; F to use item &nbsp;|&nbsp; T to talk</div>
+    </div>
+
+    <div id="dialogue-panel" class="hidden">
+      <div id="dialogue-speaker">💀 <span id="dialogue-name"></span></div>
+      <div id="dialogue-text"></div>
+      <div id="dialogue-hint">Press any key to close</div>
+    </div>
+
+    <div id="api-key-modal" class="hidden">
+      <h2>🔑 Gemini API Key</h2>
+      <p>The skeletons speak through Gemini AI.<br/>Enter your API key to enable their dialogue.</p>
+      <p><small>Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a></small></p>
+      <input type="password" id="api-key-input" placeholder="AIza…" autocomplete="off" />
+      <div class="api-key-buttons">
+        <button id="api-key-save">Save &amp; Continue</button>
+        <button id="api-key-cancel">Cancel</button>
+      </div>
     </div>
   </div>
 
