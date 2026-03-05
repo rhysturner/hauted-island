@@ -369,6 +369,43 @@ function showApiKeyModal(onSave) {
   apiKeyModal .addEventListener('keydown', handleKeydown);
 }
 
+// ── Settings modal ────────────────────────────────────────────────────────────
+const settingsModal    = document.getElementById('settings-modal');
+const settingsApiKey   = document.getElementById('settings-api-key');
+const settingsSaveBtn  = document.getElementById('settings-save');
+const settingsCloseBtn = document.getElementById('settings-close');
+const settingsBtn      = document.getElementById('settings-btn');
+
+function openSettings() {
+  const saved = localStorage.getItem(LS_KEY) || '';
+  settingsApiKey.value = saved;
+  settingsModal.classList.remove('hidden');
+  settingsApiKey.focus();
+}
+
+function closeSettings() {
+  settingsModal.classList.add('hidden');
+}
+
+settingsBtn.addEventListener('click', openSettings);
+
+settingsSaveBtn.addEventListener('click', () => {
+  const key = settingsApiKey.value.trim();
+  if (key) {
+    localStorage.setItem(LS_KEY, key);
+  } else {
+    localStorage.removeItem(LS_KEY);
+  }
+  closeSettings();
+});
+
+settingsCloseBtn.addEventListener('click', closeSettings);
+
+settingsModal.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { settingsSaveBtn.click(); e.stopPropagation(); }
+  if (e.key === 'Escape') { closeSettings(); e.stopPropagation(); }
+});
+
 // ── LLM dialogue fetch ────────────────────────────────────────────────────────
 async function fetchSkeletonDialogue(sk) {
   let apiKey = localStorage.getItem(LS_KEY);
@@ -413,31 +450,28 @@ async function callGemini(sk, apiKey, playerMessage) {
 
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent',
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'x-goog-api-key': apiKey,
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: { maxOutputTokens: 140, temperature: 1.0 },
         }),
       }
     );
-
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      const msg = err?.error?.message || `API error ${res.status}`;
       if (res.status === 400 || res.status === 401 || res.status === 403) {
         localStorage.removeItem(LS_KEY);
       }
-      if (playerMessage) {
-        setDialogueResponse(`[${msg}]`);
-      } else {
-        setDialogueGreeting(`[${msg}]`);
-      }
+      const errBody = await res.json().catch(() => ({}));
+      const msg = errBody?.error?.message || res.statusText;
+      setDialogueText(`[${msg}]`);
       return;
     }
-
     const data = await res.json();
     let text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
       || (playerMessage ? '…the skeleton turns away.' : '…the skeleton regards you silently.');
@@ -521,15 +555,12 @@ function submitPlayerReply() {
 
 // ── Input ─────────────────────────────────────────────────────────────────────
 window.addEventListener('keydown', e => {
-  // API key modal takes full priority
-  if (!apiKeyModal.classList.contains('hidden')) return;
+  // Don't process game input while settings modal is open
+  if (!settingsModal.classList.contains('hidden')) return;
 
-  if (dialogueActive) {
-    // Close dialogue once the final response is shown
-    if (!dialogueLoading && dialoguePhase === 'done') {
-      closeDialogue();
-    }
-    // While awaiting player input, don't pass keys to the game
+  // Close dialogue on any key (unless the API key modal is open)
+  if (dialogueActive && !dialogueLoading && apiKeyModal.classList.contains('hidden')) {
+    closeDialogue();
     return;
   }
 

@@ -14,6 +14,7 @@
     <span>💀 Skeletons: <span id="skelCount">0</span></span>
     <span>🔦 Items: <span id="itemCount">0</span></span>
     <span>⚗️ Held: <span id="heldItem">None</span></span>
+    <button id="settings-btn" title="Settings">⚙️ Settings</button>
   </div>
 
   <div id="canvas-wrap">
@@ -53,6 +54,19 @@
       <div class="api-key-buttons">
         <button id="api-key-save">Save &amp; Continue</button>
         <button id="api-key-cancel">Cancel</button>
+      </div>
+    </div>
+
+    <div id="settings-modal" class="hidden">
+      <h2>⚙️ Settings</h2>
+      <div class="settings-row">
+        <label for="settings-api-key">🔑 Gemini API Key</label>
+        <input type="password" id="settings-api-key" placeholder="AIza…" autocomplete="off" />
+        <p class="settings-hint"><small>Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a></small></p>
+      </div>
+      <div class="api-key-buttons">
+        <button id="settings-save">Save</button>
+        <button id="settings-close">Close</button>
       </div>
     </div>
   </div>
