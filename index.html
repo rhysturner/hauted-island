@@ -34,6 +34,7 @@
       </p>
       <button id="startBtn">Start Game</button>
       <div id="controls-hint">WASD / Arrow Keys to move &nbsp;|&nbsp; F to use item &nbsp;|&nbsp; T to talk</div>
+      <div id="controls-hint-mobile">D-pad to move &nbsp;|&nbsp; ⚗️ Use Item &amp; 💬 Talk buttons</div>
     </div>
 
     <div id="dialogue-panel" class="hidden">
@@ -68,6 +69,19 @@
         <button id="settings-save">Save</button>
         <button id="settings-close">Close</button>
       </div>
+    </div>
+  </div>
+
+  <div id="mobile-controls" aria-label="Mobile game controls">
+    <div class="dpad" aria-label="Directional pad">
+      <button class="dpad-btn" id="dpad-up" aria-label="Move up">▲</button>
+      <button class="dpad-btn" id="dpad-left" aria-label="Move left">◀</button>
+      <button class="dpad-btn" id="dpad-right" aria-label="Move right">▶</button>
+      <button class="dpad-btn" id="dpad-down" aria-label="Move down">▼</button>
+    </div>
+    <div class="action-btns">
+      <button class="action-btn" id="action-f" aria-label="Use item">⚗️<span>Use Item</span></button>
+      <button class="action-btn" id="action-t" aria-label="Talk to skeleton">💬<span>Talk</span></button>
     </div>
   </div>
 

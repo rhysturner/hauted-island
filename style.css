@@ -54,14 +54,594 @@ h1 {
 
 #canvas-wrap {
   position: relative;
+  width: 100%;
+  max-width: 800px;
 }
 
 #gameCanvas {
+  width: 100%;
+  height: auto;
   border: 3px solid #4a1a7a;
   border-radius: 4px;
   box-shadow: 0 0 40px rgba(100, 0, 200, 0.5);
   display: block;
 }
+
+#overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 2, 15, 0.82);
+  border-radius: 2px;
+  text-align: center;
+  padding: 30px;
+  overflow-y: auto;
+}
+
+#overlay.hidden {
+  display: none;
+}
+
+#overlay h2 {
+  font-size: 2rem;
+  margin-bottom: 14px;
+  text-shadow: 0 0 14px currentColor;
+}
+
+#overlay p {
+  font-size: 1rem;
+  color: #b0b0c8;
+  line-height: 1.7;
+  margin-bottom: 20px;
+  max-width: 400px;
+}
+
+#overlay button {
+  background: #5a007a;
+  color: #fff;
+  border: 2px solid #a040ff;
+  padding: 10px 30px;
+  font-size: 1.1rem;
+  font-family: inherit;
+  border-radius: 6px;
+  cursor: pointer;
+  text-shadow: 0 0 8px #df9fff;
+  box-shadow: 0 0 18px #8800cc;
+  transition: background 0.2s;
+}
+
+#overlay button:hover {
+  background: #7a00aa;
+}
+
+#controls-hint {
+  margin-top: 10px;
+  font-size: 0.78rem;
+  color: #6060a0;
+  letter-spacing: 1px;
+}
+
+#controls-hint-mobile {
+  display: none;
+  margin-top: 10px;
+  font-size: 0.78rem;
+  color: #6060a0;
+  letter-spacing: 1px;
+}
+
+/* ── Skeleton dialogue panel ─────────────────────────────────────────────── */
+#dialogue-panel {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  right: 10px;
+  background: rgba(5, 2, 20, 0.92);
+  border: 2px solid #8800cc;
+  border-radius: 8px;
+  padding: 14px 18px;
+  color: #e0e0e0;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+#dialogue-panel.hidden {
+  display: none;
+}
+
+#dialogue-speaker {
+  color: #b06fff;
+  font-weight: bold;
+  font-size: 0.95rem;
+  margin-bottom: 8px;
+  text-shadow: 0 0 8px #7a00ff;
+}
+
+#dialogue-text {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: #c8c8e8;
+  min-height: 2.5em;
+  white-space: pre-wrap;
+}
+
+#dialogue-text.loading::after {
+  content: '';
+  display: inline-block;
+  animation: ellipsis 1.2s steps(4, end) infinite;
+}
+
+@keyframes ellipsis {
+  0%   { content: ''; }
+  25%  { content: '.'; }
+  50%  { content: '..'; }
+  75%  { content: '...'; }
+  100% { content: ''; }
+}
+
+#dialogue-hint {
+  margin-top: 10px;
+  font-size: 0.7rem;
+  color: #5050a0;
+  text-align: right;
+  cursor: pointer;
+}
+
+/* ── Player reply input inside dialogue ──────────────────────────────────── */
+#dialogue-input-wrap {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+#dialogue-input-wrap.hidden {
+  display: none;
+}
+
+#dialogue-input {
+  flex: 1;
+  background: #0e0a1e;
+  border: 1px solid #5a2a8a;
+  border-radius: 6px;
+  color: #e0e0e0;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.85rem;
+  padding: 6px 10px;
+  outline: none;
+}
+
+#dialogue-input:focus {
+  border-color: #a040ff;
+}
+
+#dialogue-send {
+  background: #5a007a;
+  color: #fff;
+  border: 1px solid #a040ff;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+#dialogue-send:hover {
+  background: #7a00aa;
+}
+
+/* ── API key modal ────────────────────────────────────────────────────────── */
+#api-key-modal {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 2, 15, 0.92);
+  border-radius: 2px;
+  text-align: center;
+  padding: 30px;
+  gap: 12px;
+}
+
+#api-key-modal.hidden {
+  display: none;
+}
+
+#api-key-modal h2 {
+  font-size: 1.4rem;
+  color: #b06fff;
+  text-shadow: 0 0 10px #7a00ff;
+}
+
+#api-key-modal p {
+  font-size: 0.9rem;
+  color: #b0b0c8;
+  line-height: 1.6;
+  max-width: 380px;
+}
+
+#api-key-modal small {
+  font-size: 0.8rem;
+  color: #7070a8;
+}
+
+#api-key-modal a {
+  color: #b06fff;
+  text-decoration: none;
+}
+
+#api-key-modal a:hover {
+  text-decoration: underline;
+}
+
+#api-key-input {
+  width: 100%;
+  max-width: 340px;
+  background: #0e0a1e;
+  border: 1px solid #5a2a8a;
+  border-radius: 6px;
+  color: #e0e0e0;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.9rem;
+  padding: 8px 12px;
+  outline: none;
+}
+
+#api-key-input:focus {
+  border-color: #a040ff;
+}
+
+.api-key-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+#api-key-save {
+  background: #5a007a;
+  color: #fff;
+  border: 2px solid #a040ff;
+  padding: 8px 22px;
+  font-size: 1rem;
+  font-family: inherit;
+  border-radius: 6px;
+  cursor: pointer;
+  text-shadow: 0 0 8px #df9fff;
+  box-shadow: 0 0 14px #8800cc;
+  transition: background 0.2s;
+}
+
+#api-key-save:hover {
+  background: #7a00aa;
+}
+
+#api-key-cancel {
+  background: transparent;
+  color: #9090b8;
+  border: 1px solid #4a2a6a;
+  padding: 8px 18px;
+  font-size: 1rem;
+  font-family: inherit;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+#api-key-cancel:hover {
+  color: #c0c0e0;
+  border-color: #7a4aaa;
+}
+
+/* ── Settings button ─────────────────────────────────────────────────────────── */
+#settings-btn {
+  background: transparent;
+  color: #9090b8;
+  border: 1px solid #4a2a6a;
+  padding: 4px 14px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+  margin-left: auto;
+}
+
+#settings-btn:hover {
+  color: #c0c0e0;
+  border-color: #7a4aaa;
+}
+
+/* ── Settings modal ──────────────────────────────────────────────────────────── */
+#settings-modal {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 2, 15, 0.95);
+  border-radius: 2px;
+  text-align: center;
+  padding: 30px;
+  gap: 18px;
+  z-index: 20;
+}
+
+#settings-modal.hidden {
+  display: none;
+}
+
+#settings-modal h2 {
+  font-size: 1.4rem;
+  color: #b06fff;
+  text-shadow: 0 0 10px #7a00ff;
+}
+
+.settings-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 380px;
+}
+
+.settings-row label {
+  font-size: 0.95rem;
+  color: #b0b0c8;
+  align-self: flex-start;
+}
+
+#settings-api-key {
+  width: 100%;
+  max-width: 340px;
+  background: #0e0a1e;
+  border: 1px solid #5a2a8a;
+  border-radius: 6px;
+  color: #e0e0e0;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.9rem;
+  padding: 8px 12px;
+  outline: none;
+}
+
+#settings-api-key:focus {
+  border-color: #a040ff;
+}
+
+.settings-hint {
+  font-size: 0.8rem;
+  color: #7070a8;
+  align-self: flex-start;
+}
+
+.settings-hint a {
+  color: #b06fff;
+  text-decoration: none;
+}
+
+.settings-hint a:hover {
+  text-decoration: underline;
+}
+
+#settings-save {
+  background: #5a007a;
+  color: #fff;
+  border: 2px solid #a040ff;
+  padding: 8px 22px;
+  font-size: 1rem;
+  font-family: inherit;
+  border-radius: 6px;
+  cursor: pointer;
+  text-shadow: 0 0 8px #df9fff;
+  box-shadow: 0 0 14px #8800cc;
+  transition: background 0.2s;
+}
+
+#settings-save:hover {
+  background: #7a00aa;
+}
+
+#settings-close {
+  background: transparent;
+  color: #9090b8;
+  border: 1px solid #4a2a6a;
+  padding: 8px 18px;
+  font-size: 1rem;
+  font-family: inherit;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+#settings-close:hover {
+  color: #c0c0e0;
+  border-color: #7a4aaa;
+}
+
+/* ── Mobile touch controls ───────────────────────────────────────────────────── */
+#mobile-controls {
+  display: none;
+  gap: 20px;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  width: 100%;
+  max-width: 800px;
+}
+
+.dpad {
+  display: grid;
+  grid-template-areas:
+    ". up ."
+    "left . right"
+    ". down .";
+  gap: 4px;
+}
+
+.dpad-btn {
+  width: 54px;
+  height: 54px;
+  background: rgba(80, 0, 120, 0.5);
+  border: 2px solid #5a2a8a;
+  border-radius: 8px;
+  color: #d0d0e8;
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.dpad-btn:active {
+  background: rgba(120, 0, 180, 0.75);
+  border-color: #a040ff;
+}
+
+#dpad-up    { grid-area: up; }
+#dpad-left  { grid-area: left; }
+#dpad-right { grid-area: right; }
+#dpad-down  { grid-area: down; }
+
+.action-btns {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.action-btn {
+  width: 68px;
+  height: 68px;
+  background: rgba(80, 0, 120, 0.5);
+  border: 2px solid #a040ff;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 1.4rem;
+  font-family: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  text-shadow: 0 0 6px #df9fff;
+  box-shadow: 0 0 12px rgba(136, 0, 204, 0.5);
+  transition: background 0.1s;
+  gap: 2px;
+}
+
+.action-btn span {
+  font-size: 0.6rem;
+  letter-spacing: 0.5px;
+  color: #c0a0e0;
+}
+
+.action-btn:active {
+  background: rgba(120, 0, 180, 0.8);
+}
+
+/* ── Responsive / mobile breakpoint ─────────────────────────────────────────── */
+@media (max-width: 860px) {
+  body {
+    justify-content: flex-start;
+    overflow-y: auto;
+    padding: 8px 0 16px;
+  }
+
+  h1 {
+    font-size: 1.6rem;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  #hud {
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 6px;
+    font-size: 0.8rem;
+    padding: 0 8px;
+    width: 100%;
+    max-width: 800px;
+  }
+
+  #hud span {
+    padding: 3px 8px;
+  }
+
+  #hud #settings-btn {
+    margin-left: 0;
+  }
+
+  #canvas-wrap {
+    border-radius: 0;
+  }
+
+  #controls-hint {
+    display: none;
+  }
+
+  #controls-hint-mobile {
+    display: block;
+  }
+
+  #mobile-controls {
+    display: flex;
+  }
+
+  #overlay {
+    justify-content: flex-start;
+    padding: 14px 16px 16px;
+    overflow-y: auto;
+  }
+
+  #overlay h2 {
+    font-size: 1.3rem;
+    margin-bottom: 10px;
+  }
+
+  #overlay p {
+    font-size: 0.78rem;
+    line-height: 1.5;
+    max-width: 100%;
+    margin-bottom: 12px;
+  }
+
+  #overlay button {
+    font-size: 1rem;
+    padding: 9px 24px;
+  }
+
+  #dialogue-panel {
+    font-size: 0.8rem;
+    padding: 10px 12px;
+  }
+
+  #dialogue-text {
+    font-size: 0.82rem;
+  }
+
+  #dialogue-hint {
+    font-size: 0.65rem;
+  }
+
+  #api-key-modal {
+    padding: 20px 16px;
+  }
+
+  #api-key-modal p {
+    font-size: 0.82rem;
+  }
+}
+
 
 #overlay {
   position: absolute;
