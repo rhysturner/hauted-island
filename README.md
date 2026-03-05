@@ -21,6 +21,7 @@ then use them to destroy every skeleton.  Destroy them all to escape!
 | `A` / `←` | Move left |
 | `D` / `→` | Move right |
 | `F` | Use held item on a nearby skeleton |
+| `T` | Talk to a nearby skeleton (LLM-generated dialogue) |
 
 ### Items
 
@@ -36,13 +37,26 @@ then use them to destroy every skeleton.  Destroy them all to escape!
 * You have **3 hearts**; after losing all three the game ends.
 * You get brief **invincibility frames** after being hit — use them to escape.
 * Only one item can be held at a time.  Unused items stay on the ground.
+* Approach a skeleton and press **T** to hear what it has to say — each one has its own personality!
+
+## Skeleton Dialogue (LLM)
+
+Each of the five skeletons has a unique name and personality.  When you walk
+within talking distance, a **[T] Talk** prompt appears above their skull.
+Press `T` to trigger a conversation.  Their lines are generated live by the
+[Gemini API](https://ai.google.dev/).
+
+The first time you talk to a skeleton you will be asked for a **Gemini API
+key**.  You can get a free key at
+[aistudio.google.com/apikey](https://aistudio.google.com/apikey).  The key is
+saved in your browser's `localStorage` so you only need to enter it once.
 
 ## Files
 
 ```
 index.html   – Game page and HUD
 style.css    – Styling and overlay
-game.js      – All game logic (canvas rendering, AI, collision)
+game.js      – All game logic (canvas rendering, AI, collision, LLM dialogue)
 ```
 
 ## Inspiration
