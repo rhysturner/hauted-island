@@ -131,7 +131,6 @@ h1 {
   padding: 14px 18px;
   color: #e0e0e0;
   font-family: 'Courier New', Courier, monospace;
-  pointer-events: none;
 }
 
 #dialogue-panel.hidden {
@@ -173,6 +172,49 @@ h1 {
   font-size: 0.7rem;
   color: #5050a0;
   text-align: right;
+}
+
+/* ── Player reply input inside dialogue ──────────────────────────────────── */
+#dialogue-input-wrap {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+#dialogue-input-wrap.hidden {
+  display: none;
+}
+
+#dialogue-input {
+  flex: 1;
+  background: #0e0a1e;
+  border: 1px solid #5a2a8a;
+  border-radius: 6px;
+  color: #e0e0e0;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.85rem;
+  padding: 6px 10px;
+  outline: none;
+}
+
+#dialogue-input:focus {
+  border-color: #a040ff;
+}
+
+#dialogue-send {
+  background: #5a007a;
+  color: #fff;
+  border: 1px solid #a040ff;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+#dialogue-send:hover {
+  background: #7a00aa;
 }
 
 /* ── API key modal ────────────────────────────────────────────────────────── */
