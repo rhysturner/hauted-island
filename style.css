@@ -1030,12 +1030,9 @@ h1 {
 
 /* ── Strudel soundtrack editor (hidden) ─────────────────────────────────────── */
 #strudel-soundtrack {
-  position: fixed;
-  top: -9999px;
-  left: -9999px;
-  width: 1px;
-  height: 1px;
-  pointer-events: none;
+  visibility: hidden;
+  width: 0;
+  height: 0;
   overflow: hidden;
-  opacity: 0;
+  pointer-events: none;
 }

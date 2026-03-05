@@ -37,9 +37,9 @@ function getEditor() {
 }
 
 // Poll until the strudel-editor's internal `editor` property appears.
-async function waitForEditor(timeout) {
-  timeout = timeout || 10000;
-  const deadline = Date.now() + timeout;
+async function waitForEditor(maxWait) {
+  maxWait = maxWait || 10000;
+  const deadline = Date.now() + maxWait;
   while (Date.now() < deadline) {
     if (strudelEl && strudelEl.editor) return strudelEl.editor;
     await new Promise(function (r) { setTimeout(r, 250); });
@@ -74,6 +74,7 @@ async function init() {
 }
 
 function _doPlay(trackName) {
+  if (!PATTERNS[trackName]) return;
   const editor = getEditor();
   if (!editor) return;
   try {
