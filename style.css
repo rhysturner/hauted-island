@@ -278,3 +278,130 @@ h1 {
   border-color: #7a4aaa;
 }
 
+/* ── Settings button ─────────────────────────────────────────────────────────── */
+#settings-btn {
+  background: transparent;
+  color: #9090b8;
+  border: 1px solid #4a2a6a;
+  padding: 4px 14px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+  margin-left: auto;
+}
+
+#settings-btn:hover {
+  color: #c0c0e0;
+  border-color: #7a4aaa;
+}
+
+/* ── Settings modal ──────────────────────────────────────────────────────────── */
+#settings-modal {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 2, 15, 0.95);
+  border-radius: 2px;
+  text-align: center;
+  padding: 30px;
+  gap: 18px;
+  z-index: 20;
+}
+
+#settings-modal.hidden {
+  display: none;
+}
+
+#settings-modal h2 {
+  font-size: 1.4rem;
+  color: #b06fff;
+  text-shadow: 0 0 10px #7a00ff;
+}
+
+.settings-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 380px;
+}
+
+.settings-row label {
+  font-size: 0.95rem;
+  color: #b0b0c8;
+  align-self: flex-start;
+}
+
+#settings-api-key {
+  width: 100%;
+  max-width: 340px;
+  background: #0e0a1e;
+  border: 1px solid #5a2a8a;
+  border-radius: 6px;
+  color: #e0e0e0;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.9rem;
+  padding: 8px 12px;
+  outline: none;
+}
+
+#settings-api-key:focus {
+  border-color: #a040ff;
+}
+
+.settings-hint {
+  font-size: 0.8rem;
+  color: #7070a8;
+  align-self: flex-start;
+}
+
+.settings-hint a {
+  color: #b06fff;
+  text-decoration: none;
+}
+
+.settings-hint a:hover {
+  text-decoration: underline;
+}
+
+#settings-save {
+  background: #5a007a;
+  color: #fff;
+  border: 2px solid #a040ff;
+  padding: 8px 22px;
+  font-size: 1rem;
+  font-family: inherit;
+  border-radius: 6px;
+  cursor: pointer;
+  text-shadow: 0 0 8px #df9fff;
+  box-shadow: 0 0 14px #8800cc;
+  transition: background 0.2s;
+}
+
+#settings-save:hover {
+  background: #7a00aa;
+}
+
+#settings-close {
+  background: transparent;
+  color: #9090b8;
+  border: 1px solid #4a2a6a;
+  padding: 8px 18px;
+  font-size: 1rem;
+  font-family: inherit;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+#settings-close:hover {
+  color: #c0c0e0;
+  border-color: #7a4aaa;
+}
+

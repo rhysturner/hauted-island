@@ -325,6 +325,43 @@ function showApiKeyModal(onSave) {
   apiKeyModal .addEventListener('keydown', handleKeydown);
 }
 
+// ── Settings modal ────────────────────────────────────────────────────────────
+const settingsModal    = document.getElementById('settings-modal');
+const settingsApiKey   = document.getElementById('settings-api-key');
+const settingsSaveBtn  = document.getElementById('settings-save');
+const settingsCloseBtn = document.getElementById('settings-close');
+const settingsBtn      = document.getElementById('settings-btn');
+
+function openSettings() {
+  const saved = localStorage.getItem(LS_KEY) || '';
+  settingsApiKey.value = saved;
+  settingsModal.classList.remove('hidden');
+  settingsApiKey.focus();
+}
+
+function closeSettings() {
+  settingsModal.classList.add('hidden');
+}
+
+settingsBtn.addEventListener('click', openSettings);
+
+settingsSaveBtn.addEventListener('click', () => {
+  const key = settingsApiKey.value.trim();
+  if (key) {
+    localStorage.setItem(LS_KEY, key);
+  } else {
+    localStorage.removeItem(LS_KEY);
+  }
+  closeSettings();
+});
+
+settingsCloseBtn.addEventListener('click', closeSettings);
+
+settingsModal.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { settingsSaveBtn.click(); e.stopPropagation(); }
+  if (e.key === 'Escape') { closeSettings(); e.stopPropagation(); }
+});
+
 // ── LLM dialogue fetch ────────────────────────────────────────────────────────
 async function fetchSkeletonDialogue(sk) {
   let apiKey = localStorage.getItem(LS_KEY);
@@ -402,6 +439,9 @@ function talkToSkeleton() {
 
 // ── Input ─────────────────────────────────────────────────────────────────────
 window.addEventListener('keydown', e => {
+  // Don't process game input while settings modal is open
+  if (!settingsModal.classList.contains('hidden')) return;
+
   // Close dialogue on any key (unless the API key modal is open)
   if (dialogueActive && !dialogueLoading && apiKeyModal.classList.contains('hidden')) {
     closeDialogue();
