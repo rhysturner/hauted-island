@@ -315,7 +315,7 @@ function setDialogueResponse(text) {
   dialogueText.classList.remove('loading');
   dialogueText.textContent = text;
   dialogueInputWrap.classList.add('hidden');
-  dialogueHint.textContent = 'Press any key to close';
+  dialogueHint.textContent = 'Tap or press any key to close';
   // Check win in case talking converted the last hostile skeleton
   if (state === 'play') checkWin();
 }
@@ -584,6 +584,59 @@ dialogueInput.addEventListener('keydown', e => {
   if (e.key === 'Enter') submitPlayerReply();
 });
 dialogueSend.addEventListener('click', submitPlayerReply);
+
+// Tap dialogue hint or panel body to close on mobile (phase: done)
+dialogueHint.addEventListener('click', () => {
+  if (!dialogueLoading && dialoguePhase === 'done') closeDialogue();
+});
+dialoguePanel.addEventListener('click', e => {
+  if (!dialogueLoading && dialoguePhase === 'done' &&
+      !e.target.closest('#dialogue-input-wrap')) {
+    closeDialogue();
+  }
+});
+
+// ── Mobile touch controls ─────────────────────────────────────────────────────
+(function setupMobileControls() {
+  const dpadMap = {
+    'dpad-up':    ['arrowup',    'w'],
+    'dpad-down':  ['arrowdown',  's'],
+    'dpad-left':  ['arrowleft',  'a'],
+    'dpad-right': ['arrowright', 'd'],
+  };
+
+  for (const [id, keyNames] of Object.entries(dpadMap)) {
+    const btn = document.getElementById(id);
+    if (!btn) continue;
+    btn.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      btn.setPointerCapture(e.pointerId);
+      for (const k of keyNames) keys[k] = true;
+    });
+    const release = e => {
+      e.preventDefault();
+      for (const k of keyNames) keys[k] = false;
+    };
+    btn.addEventListener('pointerup',     release);
+    btn.addEventListener('pointercancel', release);
+  }
+
+  const actionF = document.getElementById('action-f');
+  if (actionF) {
+    actionF.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      if (state === 'play') useItem();
+    });
+  }
+
+  const actionT = document.getElementById('action-t');
+  if (actionT) {
+    actionT.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      if (state === 'play') talkToSkeleton();
+    });
+  }
+})();
 
 function checkWin() {
   // Win when every skeleton is either dead or friendly (good alignment)
