@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Haunted Island</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <h1>💀 HAUNTED ISLAND 💀</h1>
+
+  <div id="hud">
+    <span>❤️ <span class="hearts" id="hearts">♥♥♥</span></span>
+    <span>💀 Skeletons: <span id="skelCount">0</span></span>
+    <span>🔦 Items: <span id="itemCount">0</span></span>
+    <span>⚗️ Held: <span id="heldItem">None</span></span>
+  </div>
+
+  <div id="canvas-wrap">
+    <canvas id="gameCanvas" width="800" height="560"></canvas>
+
+    <div id="overlay">
+      <h2 id="overlay-title" style="color:#b06fff">🏝️ Haunted Island</h2>
+      <p id="overlay-msg">
+        You are stranded on a haunted island.<br/>
+        Skeletons roam the island and will chase you on sight!<br/><br/>
+        Collect <strong>holy water</strong> ⚗️, <strong>torches</strong> 🔦,
+        and <strong>silver daggers</strong> 🗡️ scattered across the island.
+        Press <strong>F</strong> to use your held item on a nearby skeleton and destroy it.<br/><br/>
+        Destroy <em>all</em> skeletons to escape the island!
+      </p>
+      <button id="startBtn">Start Game</button>
+      <div id="controls-hint">WASD / Arrow Keys to move &nbsp;|&nbsp; F to use item</div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
