@@ -65,6 +65,7 @@ let animTick  = 0;
 let dialogueActive   = false;   // true while a skeleton dialogue is open
 let dialogueSkeleton = null;    // skeleton currently being spoken to
 let dialogueLoading  = false;   // true while awaiting LLM response
+let dialoguePhase    = 'closed'; // 'greeting' | 'awaiting-input' | 'responding' | 'done' | 'closed'
 
 // Minimal stub so the draw loop is safe before game starts
 function makePlayerStub() {
@@ -129,6 +130,9 @@ const SKEL_SIGHT        = 160;  // px
 const SKEL_ATTACK_RANGE = 24;   // px (edge-to-edge)
 const SKEL_ATTACK_CD    = 1.2;  // seconds between attacks
 const SKEL_TALK_RANGE   = 72;   // px — must be within this distance to talk
+const SKEL_GOOD_HEAL_RANGE  = 35; // px — good skeleton heals player within this distance
+const SKEL_GOOD_HEAL_CD     = 8;  // seconds between heals
+const SKEL_GOOD_HEAL_AMOUNT = 1;  // HP restored per heal
 
 // Each skeleton's unique identity for LLM prompting
 const SKELETON_DATA = [
@@ -144,13 +148,16 @@ function makeSkeleton(x, y, name, personality) {
     x, y,
     px: x, py: y,
     w: 28, h: 28,
-    mode: 'patrol',     // 'patrol' | 'chase' | 'attack'
+    mode: 'patrol',     // 'patrol' | 'chase'
     patrol: { tx: x, ty: y, timer: 0 },
     attackTimer: 0,
     alive: true,
     flashTimer: 0,
     name:        name        || 'Unknown Skeleton',
     personality: personality || 'mysterious and silent',
+    alignment:   Math.random() < 0.5 ? 'good' : 'bad',  // randomly assigned
+    talked:      false,   // has the player held a dialogue with this skeleton?
+    helpTimer:   0,       // cooldown for healing the player (good alignment only)
   };
 }
 
@@ -208,6 +215,10 @@ function initGame() {
   skeletons = skelPositions.map(([x, y], i) =>
     makeSkeleton(x, y, SKELETON_DATA[i].name, SKELETON_DATA[i].personality)
   );
+  // Guarantee at least one hostile skeleton so the game is never trivially won at start
+  if (skeletons.every(s => s.alignment === 'good')) {
+    skeletons[Math.floor(Math.random() * skeletons.length)].alignment = 'bad';
+  }
   skeletons.forEach(pickPatrolTarget);
 
   pickups = makePickups();
@@ -253,17 +264,25 @@ startBtn.addEventListener('click', () => {
 });
 
 // ── Dialogue UI ───────────────────────────────────────────────────────────────
-const dialoguePanel  = document.getElementById('dialogue-panel');
-const dialogueName   = document.getElementById('dialogue-name');
-const dialogueText   = document.getElementById('dialogue-text');
+const dialoguePanel     = document.getElementById('dialogue-panel');
+const dialogueName      = document.getElementById('dialogue-name');
+const dialogueText      = document.getElementById('dialogue-text');
+const dialogueHint      = document.getElementById('dialogue-hint');
+const dialogueInputWrap = document.getElementById('dialogue-input-wrap');
+const dialogueInput     = document.getElementById('dialogue-input');
+const dialogueSend      = document.getElementById('dialogue-send');
 
 function openDialogue(sk) {
   dialogueActive   = true;
   dialogueSkeleton = sk;
   dialogueLoading  = true;
+  dialoguePhase    = 'greeting';
   dialogueName.textContent = sk.name;
   dialogueText.textContent = '';
   dialogueText.classList.add('loading');
+  dialogueInputWrap.classList.add('hidden');
+  dialogueInput.value = '';
+  dialogueHint.textContent = '';
   dialoguePanel.classList.remove('hidden');
 }
 
@@ -271,14 +290,39 @@ function closeDialogue() {
   dialogueActive   = false;
   dialogueSkeleton = null;
   dialogueLoading  = false;
+  dialoguePhase    = 'closed';
   dialogueText.classList.remove('loading');
   dialoguePanel.classList.add('hidden');
+  dialogueInputWrap.classList.add('hidden');
+  dialogueInput.value = '';
 }
 
-function setDialogueText(text) {
+// Called when the skeleton's greeting arrives from the LLM
+function setDialogueGreeting(text) {
   dialogueLoading = false;
+  dialoguePhase   = 'awaiting-input';
   dialogueText.classList.remove('loading');
   dialogueText.textContent = text;
+  dialogueInputWrap.classList.remove('hidden');
+  dialogueHint.textContent = 'Type your reply and press Enter (or click Send)';
+  dialogueInput.focus();
+}
+
+// Called when the skeleton's response to the player arrives
+function setDialogueResponse(text) {
+  dialogueLoading = false;
+  dialoguePhase   = 'done';
+  dialogueText.classList.remove('loading');
+  dialogueText.textContent = text;
+  dialogueInputWrap.classList.add('hidden');
+  dialogueHint.textContent = 'Press any key to close';
+  // Check win in case talking converted the last hostile skeleton
+  if (state === 'play') checkWin();
+}
+
+// Legacy helper kept for error paths
+function setDialogueText(text) {
+  setDialogueGreeting(text);
 }
 
 // ── API key modal ─────────────────────────────────────────────────────────────
@@ -370,22 +414,39 @@ async function fetchSkeletonDialogue(sk) {
     openDialogue(sk);
     showApiKeyModal(key => {
       apiKey = key;
-      callGemini(sk, apiKey);
+      callGemini(sk, apiKey, null);
     });
     return;
   }
 
   openDialogue(sk);
-  callGemini(sk, apiKey);
+  callGemini(sk, apiKey, null);  // null = initial greeting
 }
 
-async function callGemini(sk, apiKey) {
-  const prompt =
-    `You are ${sk.name}, a skeleton NPC haunting a cursed island in a browser game. ` +
-    `Your personality: ${sk.personality}. ` +
-    `A traveller has approached you and wants to talk. ` +
-    `Respond in character in 1–2 short sentences. ` +
-    `Do not use asterisks, stage directions, or quotation marks.`;
+async function callGemini(sk, apiKey, playerMessage) {
+  const alignmentHint = sk.alignment === 'good'
+    ? 'You are currently well-disposed toward travellers.'
+    : 'You are currently hostile toward travellers.';
+
+  let prompt;
+  if (!playerMessage) {
+    // ── Greeting ──────────────────────────────────────────────────────────────
+    prompt =
+      `You are ${sk.name}, a skeleton NPC haunting a cursed island in a browser game. ` +
+      `Your personality: ${sk.personality}. ${alignmentHint} ` +
+      `A traveller has approached you. Greet them in character in 1–2 short sentences. ` +
+      `Do not use asterisks, stage directions, or quotation marks.`;
+  } else {
+    // ── Response to player ────────────────────────────────────────────────────
+    prompt =
+      `You are ${sk.name}, a skeleton NPC haunting a cursed island in a browser game. ` +
+      `Your personality: ${sk.personality}. ${alignmentHint} ` +
+      `The traveller said to you: "${playerMessage}". ` +
+      `Respond in character in 1–2 short sentences based on whether you like what they said. ` +
+      `After your response, on a new line write exactly one of these tags: ` +
+      `[MOOD:friendly] if you are pleased with them, or [MOOD:hostile] if you are displeased. ` +
+      `Do not use asterisks, stage directions, or quotation marks.`;
+  }
 
   try {
     const res = await fetch(
@@ -398,7 +459,7 @@ async function callGemini(sk, apiKey) {
         },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 120, temperature: 1.0 },
+          generationConfig: { maxOutputTokens: 140, temperature: 1.0 },
         }),
       }
     );
@@ -412,17 +473,42 @@ async function callGemini(sk, apiKey) {
       return;
     }
     const data = await res.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '…the skeleton says nothing.';
-    setDialogueText(text);
-  } catch (err) {
-    const msg = err?.message || '…the skeleton\'s jaw moves but makes no sound.';
-    setDialogueText(`[${msg}]`);
+    let text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
+      || (playerMessage ? '…the skeleton turns away.' : '…the skeleton regards you silently.');
+
+    if (playerMessage) {
+      // Parse and apply the mood tag
+      const moodMatch = text.match(/\[MOOD:(friendly|hostile)\]/i);
+      if (moodMatch) {
+        const newAlignment = moodMatch[1].toLowerCase() === 'friendly' ? 'good' : 'bad';
+        sk.alignment = newAlignment;
+        if (newAlignment === 'good' && sk.mode === 'chase') {
+          sk.mode = 'patrol';
+          pickPatrolTarget(sk);
+        }
+        text = text.replace(/\[MOOD:(friendly|hostile)\]/gi, '').trim();
+      }
+      sk.talked = true;
+      setDialogueResponse(text);
+    } else {
+      setDialogueGreeting(text);
+    }
+  } catch (_) {
+    if (playerMessage) {
+      setDialogueResponse('…the skeleton\'s jaw moves but makes no sound.');
+    } else {
+      setDialogueGreeting('…the skeleton regards you silently.');
+    }
   }
 }
 
 // ── Talk to nearby skeleton ───────────────────────────────────────────────────
 function talkToSkeleton() {
-  if (dialogueActive) { closeDialogue(); return; }
+  if (dialogueActive) {
+    // Only dismiss when the response is fully shown
+    if (dialoguePhase === 'done') closeDialogue();
+    return;
+  }
 
   // Find closest living skeleton within talk range
   let target = null;
@@ -435,6 +521,36 @@ function talkToSkeleton() {
   }
 
   if (target) fetchSkeletonDialogue(target);
+}
+
+// ── Player reply to skeleton ──────────────────────────────────────────────────
+function submitPlayerReply() {
+  if (dialoguePhase !== 'awaiting-input') return;
+  const message = dialogueInput.value.trim();
+  if (!message) return;
+
+  const sk = dialogueSkeleton;
+  dialogueLoading = true;
+  dialoguePhase   = 'responding';
+  dialogueText.textContent = '';
+  dialogueText.classList.add('loading');
+  dialogueInputWrap.classList.add('hidden');
+  dialogueHint.textContent = '';
+  dialogueInput.value = '';
+
+  const apiKey = localStorage.getItem(LS_KEY);
+  if (apiKey) {
+    callGemini(sk, apiKey, message);
+  } else {
+    // Fallback (no API key): randomly update alignment
+    sk.talked = true;
+    const happy = Math.random() < 0.5;
+    sk.alignment = happy ? 'good' : 'bad';
+    if (happy && sk.mode === 'chase') { sk.mode = 'patrol'; pickPatrolTarget(sk); }
+    setDialogueResponse(happy
+      ? '…the skeleton seems pleased by your words.'
+      : '…the skeleton\'s eyes glow red with anger.');
+  }
 }
 
 // ── Input ─────────────────────────────────────────────────────────────────────
@@ -451,7 +567,7 @@ window.addEventListener('keydown', e => {
   keys[e.key.toLowerCase()] = true;
 
   // Use held item
-  if (e.key.toLowerCase() === 'f' && state === 'play' && !dialogueActive) {
+  if (e.key.toLowerCase() === 'f' && state === 'play') {
     useItem();
   }
 
@@ -461,6 +577,26 @@ window.addEventListener('keydown', e => {
   }
 });
 window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+// Wire up the player input controls
+dialogueInput.addEventListener('keydown', e => {
+  e.stopPropagation();  // don't let game see these keystrokes
+  if (e.key === 'Enter') submitPlayerReply();
+});
+dialogueSend.addEventListener('click', submitPlayerReply);
+
+function checkWin() {
+  // Win when every skeleton is either dead or friendly (good alignment)
+  if (skeletons.every(s => !s.alive || s.alignment === 'good')) {
+    state = 'win';
+    const allDead = skeletons.every(s => !s.alive);
+    showOverlay('🎉 You Escaped!', '#ffe066',
+      allDead
+        ? 'All skeletons have been vanquished!<br/>You escaped the Haunted Island!'
+        : 'You befriended the remaining skeletons!<br/>You escaped the Haunted Island!',
+      'Play Again');
+  }
+}
 
 function useItem() {
   if (!player.heldItem) return;
@@ -484,14 +620,7 @@ function useItem() {
     target.flashTimer = 0.5;
     player.heldItem = null;
     updateHUD();
-
-    // Win check
-    if (skeletons.every(s => !s.alive)) {
-      state = 'win';
-      showOverlay('🎉 You Escaped!', '#ffe066',
-        'All skeletons have been vanquished!<br/>You escaped the Haunted Island!',
-        'Play Again');
-    }
+    checkWin();
   }
   // If no target in range – item is still consumed (missed swing)
   else {
@@ -557,38 +686,69 @@ function update(ts) {
     const sy = sk.y + sk.h / 2;
     const d  = dist({ x: px, y: py }, { x: sx, y: sy });
 
-    if (d < SKEL_SIGHT) {
-      sk.mode = 'chase';
-    } else if (sk.mode === 'chase' && d > SKEL_SIGHT * 1.4) {
-      sk.mode = 'patrol';
-      pickPatrolTarget(sk);
-    }
+    if (sk.alignment === 'bad') {
+      // ── Bad skeleton: chase and attack ──────────────────────────────────
+      if (d < SKEL_SIGHT) {
+        sk.mode = 'chase';
+      } else if (sk.mode === 'chase' && d > SKEL_SIGHT * 1.4) {
+        sk.mode = 'patrol';
+        pickPatrolTarget(sk);
+      }
 
-    if (sk.mode === 'chase') {
-      // Move toward player
-      const angle = Math.atan2(py - sy, px - sx);
-      sk.px = sk.x; sk.py = sk.y;
-      sk.x += Math.cos(angle) * SKEL_SPEED_CHASE * dt;
-      sk.y += Math.sin(angle) * SKEL_SPEED_CHASE * dt;
-      resolveEntityMap(sk);
+      if (sk.mode === 'chase') {
+        // Move toward player
+        const angle = Math.atan2(py - sy, px - sx);
+        sk.px = sk.x; sk.py = sk.y;
+        sk.x += Math.cos(angle) * SKEL_SPEED_CHASE * dt;
+        sk.y += Math.sin(angle) * SKEL_SPEED_CHASE * dt;
+        resolveEntityMap(sk);
 
-      // Attack
-      sk.attackTimer -= dt;
-      if (d - (sk.w / 2 + player.w / 2) < SKEL_ATTACK_RANGE && sk.attackTimer <= 0) {
-        sk.attackTimer = SKEL_ATTACK_CD;
-        if (player.invincible <= 0) {
-          player.hp = Math.max(0, player.hp - 1);
-          player.invincible = 1.2;
-          updateHUD();
-          if (player.hp === 0) {
-            state = 'dead';
-            showOverlay('💀 You Died!', '#ff4444',
-              'The skeletons have claimed another soul.<br/>Better luck next time…',
-              'Try Again');
+        // Attack
+        sk.attackTimer -= dt;
+        if (d - (sk.w / 2 + player.w / 2) < SKEL_ATTACK_RANGE && sk.attackTimer <= 0) {
+          sk.attackTimer = SKEL_ATTACK_CD;
+          if (player.invincible <= 0) {
+            player.hp = Math.max(0, player.hp - 1);
+            player.invincible = 1.2;
+            updateHUD();
+            if (player.hp === 0) {
+              state = 'dead';
+              showOverlay('💀 You Died!', '#ff4444',
+                'The skeletons have claimed another soul.<br/>Better luck next time…',
+                'Try Again');
+            }
           }
+        }
+      } else {
+        // Patrol
+        sk.patrol.timer -= dt;
+        const tdx = sk.patrol.tx - sk.x;
+        const tdy = sk.patrol.ty - sk.y;
+        const td  = Math.sqrt(tdx * tdx + tdy * tdy);
+        if (td < 4 || sk.patrol.timer <= 0) {
+          pickPatrolTarget(sk);
+        } else {
+          sk.px = sk.x; sk.py = sk.y;
+          sk.x += (tdx / td) * SKEL_SPEED_IDLE * dt;
+          sk.y += (tdy / td) * SKEL_SPEED_IDLE * dt;
+          resolveEntityMap(sk);
         }
       }
     } else {
+      // ── Good skeleton: patrol peacefully, heal nearby injured player ──────
+      if (sk.mode === 'chase') {
+        sk.mode = 'patrol';
+        pickPatrolTarget(sk);
+      }
+
+      // Heal the player when close and their HP is not full
+      if (sk.helpTimer > 0) sk.helpTimer -= dt;
+      if (d < SKEL_GOOD_HEAL_RANGE && sk.helpTimer <= 0 && player.hp < player.maxHp) {
+        player.hp = Math.min(player.maxHp, player.hp + SKEL_GOOD_HEAL_AMOUNT);
+        sk.helpTimer = SKEL_GOOD_HEAL_CD;
+        updateHUD();
+      }
+
       // Patrol
       sk.patrol.timer -= dt;
       const tdx = sk.patrol.tx - sk.x;
@@ -604,6 +764,7 @@ function update(ts) {
       }
     }
   }
+
 
   draw();
   requestAnimationFrame(update);
@@ -762,6 +923,43 @@ function drawSkeletons() {
     const chasing = sk.mode === 'chase';
     const wobble  = Math.sin(animTick * (chasing ? 8 : 4) + sx) * 2;
 
+    // Determine colour theme based on alignment visibility
+    // Before talking: neutral grey (can't tell good from bad)
+    // After talking: green for good, red for bad even while patrolling
+    let bodyColour, strokeColour, eyeColour;
+    if (chasing) {
+      // Always show red while actively chasing
+      bodyColour   = '#f0f0f0';
+      strokeColour = '#ff4444';
+      eyeColour    = '#ff0000';
+    } else if (sk.talked && sk.alignment === 'good') {
+      bodyColour   = '#d0f0d8';
+      strokeColour = '#44aa55';
+      eyeColour    = '#22aa33';
+    } else if (sk.talked && sk.alignment === 'bad') {
+      bodyColour   = '#f0d0d0';
+      strokeColour = '#aa3333';
+      eyeColour    = '#880000';
+    } else {
+      bodyColour   = '#d0d0c0';
+      strokeColour = '#808070';
+      eyeColour    = '#222';
+    }
+
+    // Good-skeleton healing glow (pulse when player is very close)
+    if (sk.alignment === 'good' && !chasing) {
+      const d = dist({ x: player.x + player.w / 2, y: player.y + player.h / 2 },
+                     { x: sx, y: sy });
+      if (d < SKEL_GOOD_HEAL_RANGE * 2) {
+        ctx.globalAlpha = 0.18 + 0.12 * Math.sin(animTick * 5);
+        ctx.fillStyle = '#44ff77';
+        ctx.beginPath();
+        ctx.arc(sx, sy, 20, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+    }
+
     // Shadow
     ctx.globalAlpha = 0.25;
     ctx.fillStyle = '#000';
@@ -771,9 +969,9 @@ function drawSkeletons() {
     ctx.globalAlpha = 1;
 
     // Body
-    ctx.fillStyle = chasing ? '#f0f0f0' : '#d0d0c0';
-    ctx.strokeStyle = chasing ? '#ff4444' : '#808070';
-    ctx.lineWidth = 1.5;
+    ctx.fillStyle   = bodyColour;
+    ctx.strokeStyle = strokeColour;
+    ctx.lineWidth   = 1.5;
 
     // Torso
     ctx.fillRect(sx - 7, sk.y + 10 + wobble, 14, 12);
@@ -786,12 +984,12 @@ function drawSkeletons() {
     ctx.stroke();
 
     // Eye sockets
-    ctx.fillStyle = chasing ? '#ff0000' : '#222';
+    ctx.fillStyle = eyeColour;
     ctx.fillRect(sx - 5, sk.y + 4 + wobble, 4, 4);
     ctx.fillRect(sx + 1,  sk.y + 4 + wobble, 4, 4);
 
     // Legs
-    ctx.strokeStyle = chasing ? '#ff4444' : '#808070';
+    ctx.strokeStyle = strokeColour;
     ctx.lineWidth = 2;
     const legSwing = Math.sin(animTick * (chasing ? 10 : 5) + sx) * 6;
     // Left leg
@@ -827,16 +1025,28 @@ function drawSkeletons() {
       ctx.globalAlpha = 1;
     }
 
-    // "[T] Talk" label when player is within talk range
+    // Labels above the skeleton when the player is within talk range
     if (!dialogueActive && state === 'play') {
       const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
       if (dist(pc, { x: sx, y: sy }) < SKEL_TALK_RANGE) {
         ctx.font = 'bold 10px "Courier New", monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
-        ctx.fillStyle = '#ffe066';
         ctx.globalAlpha = 0.85 + 0.15 * Math.sin(animTick * 4);
-        ctx.fillText('[T] Talk', sx, sk.y - 4);
+
+        if (sk.talked) {
+          // Show alignment badge after having spoken to this skeleton
+          if (sk.alignment === 'good') {
+            ctx.fillStyle = '#66ff88';
+            ctx.fillText('✨ Friendly', sx, sk.y - 4);
+          } else {
+            ctx.fillStyle = '#ff6666';
+            ctx.fillText('☠ Hostile', sx, sk.y - 4);
+          }
+        } else {
+          ctx.fillStyle = '#ffe066';
+          ctx.fillText('[T] Talk', sx, sk.y - 4);
+        }
         ctx.globalAlpha = 1;
       }
     }

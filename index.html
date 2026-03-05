@@ -24,12 +24,13 @@
       <h2 id="overlay-title" style="color:#b06fff">🏝️ Haunted Island</h2>
       <p id="overlay-msg">
         You are stranded on a haunted island.<br/>
-        Skeletons roam the island and will chase you on sight!<br/><br/>
+        Some skeletons are <strong style="color:#66ff88">friendly</strong> and some are <strong style="color:#ff6666">hostile</strong> — but you can't tell by looking!<br/><br/>
         Collect <strong>holy water</strong> ⚗️, <strong>torches</strong> 🔦,
         and <strong>silver daggers</strong> 🗡️ scattered across the island.
         Press <strong>F</strong> to use your held item on a nearby skeleton and destroy it.<br/><br/>
-        Press <strong>T</strong> to talk to a nearby skeleton — they might have something to say…<br/><br/>
-        Destroy <em>all</em> skeletons to escape the island!
+        Press <strong>T</strong> to talk to a nearby skeleton. Type your reply — if they like what you say
+        they turn <strong style="color:#66ff88">friendly</strong> and may heal you; anger them and they will hunt you down.<br/><br/>
+        Defeat or befriend <em>all</em> hostile skeletons to escape the island!
       </p>
       <button id="startBtn">Start Game</button>
       <div id="controls-hint">WASD / Arrow Keys to move &nbsp;|&nbsp; F to use item &nbsp;|&nbsp; T to talk</div>
@@ -38,6 +39,10 @@
     <div id="dialogue-panel" class="hidden">
       <div id="dialogue-speaker">💀 <span id="dialogue-name"></span></div>
       <div id="dialogue-text"></div>
+      <div id="dialogue-input-wrap" class="hidden">
+        <input type="text" id="dialogue-input" placeholder="Say something…" autocomplete="off" maxlength="200" />
+        <button id="dialogue-send">↵ Send</button>
+      </div>
       <div id="dialogue-hint">Press any key to close</div>
     </div>
 
