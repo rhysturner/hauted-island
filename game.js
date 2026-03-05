@@ -17,13 +17,13 @@ const TILE = 40;           // px per tile
 const COLS = W / TILE;     // 20
 const ROWS = H / TILE;     // 14
 
-// ── Colours ───────────────────────────────────────────────────────────────────
+// ── Colours (8-bit retro palette: HLD + Stardew Valley + Monument Valley) ─────
 const COLOUR = {
-  [WATER]:  '#1a3a6b',
-  [SAND]:   '#c8a85a',
-  [GRASS]:  '#2e7d32',
-  [TREE]:   '#1b5e20',
-  [ROCK]:   '#616161',
+  [WATER]:  '#0d2b45',
+  [SAND]:   '#c8a060',
+  [GRASS]:  '#2a5a1a',
+  [TREE]:   '#1a3a10',
+  [ROCK]:   '#454545',
 };
 
 // ── Map layout ────────────────────────────────────────────────────────────────
@@ -956,6 +956,7 @@ function resolveEntityMap(e) {
 // ── Draw ──────────────────────────────────────────────────────────────────────
 function draw() {
   ctx.clearRect(0, 0, W, H);
+  ctx.imageSmoothingEnabled = false;  // crisp pixel art edges
 
   drawMap();
   drawPickups();
@@ -964,65 +965,122 @@ function draw() {
 }
 
 function drawMap() {
+  const shimFrame = Math.floor(animTick * 4) % 8;
+
   for (let row = 0; row < ROWS; row++) {
     for (let col = 0; col < COLS; col++) {
       const t = currentMap ? currentMap[row][col] : WATER;
       const x = col * TILE, y = row * TILE;
 
-      ctx.fillStyle = COLOUR[t] || '#000';
-      ctx.fillRect(x, y, TILE, TILE);
-
       if (t === WATER) {
-        // Animated water shimmer
-        const phase = (animTick * 0.7 + col * 0.3 + row * 0.5) % (Math.PI * 2);
-        ctx.globalAlpha = 0.12 + 0.08 * Math.sin(phase);
-        ctx.fillStyle = '#4a90d9';
+        // Deep water base
+        ctx.fillStyle = '#0d2b45';
         ctx.fillRect(x, y, TILE, TILE);
-        ctx.globalAlpha = 1;
-      }
-
-      if (t === TREE) {
-        // Draw a simple tree over the grass base
-        ctx.fillStyle = '#2e7d32';
-        ctx.fillRect(x, y, TILE, TILE);
-        ctx.fillStyle = '#1b5e20';
-        ctx.beginPath();
-        ctx.arc(x + TILE / 2, y + TILE / 2, 15, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#4caf50';
-        ctx.beginPath();
-        ctx.arc(x + TILE / 2 - 3, y + TILE / 2 - 3, 8, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      if (t === ROCK) {
-        ctx.fillStyle = '#2e7d32';
-        ctx.fillRect(x, y, TILE, TILE);
-        ctx.fillStyle = '#757575';
-        ctx.beginPath();
-        ctx.ellipse(x + TILE / 2, y + TILE / 2, 14, 10, 0.3, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#9e9e9e';
-        ctx.beginPath();
-        ctx.ellipse(x + TILE / 2 - 2, y + TILE / 2 - 2, 8, 5, 0.3, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      if (t === SAND) {
-        // Subtle texture dots
-        ctx.fillStyle = 'rgba(180,140,60,0.25)';
-        for (let d = 0; d < 3; d++) {
-          const dx = ((col * 7 + d * 13 + row * 3) % TILE);
-          const dy = ((row * 11 + d * 7 + col * 5) % TILE);
-          ctx.fillRect(x + dx, y + dy, 2, 2);
+        // Animated horizontal scanline waves (pixel art style)
+        const waveOff = (Math.floor(animTick * 3) + col) % 8;
+        ctx.fillStyle = '#163d5a';
+        for (let wy = waveOff % 8; wy < TILE; wy += 8) {
+          ctx.fillRect(x, y + wy, TILE, 4);
         }
+        // Shimmer pixels (deterministic per tile, clamped to keep 2×2 blocks within bounds)
+        ctx.fillStyle = '#2a7fa5';
+        ctx.fillRect(x + ((col * 7 + 3) % (TILE - 2)), y + ((row * 11 + shimFrame * 4) % (TILE - 2)), 2, 2);
+        ctx.fillRect(x + ((col * 13 + 9) % (TILE - 2)), y + ((row * 7 + 18 + shimFrame * 2) % (TILE - 2)), 2, 2);
+      }
+
+      else if (t === SAND) {
+        // Warm sand base
+        ctx.fillStyle = '#c8a060';
+        ctx.fillRect(x, y, TILE, TILE);
+        // Dither pattern (checkerboard) for texture
+        ctx.fillStyle = '#b08040';
+        for (let py = 0; py < TILE; py += 4) {
+          for (let px = (Math.floor(py / 4) % 2 === 0 ? 0 : 2); px < TILE; px += 4) {
+            ctx.fillRect(x + px, y + py, 2, 2);
+          }
+        }
+        // Lighter highlight specks (clamped so 2×2 blocks stay within tile)
+        ctx.fillStyle = '#e0c878';
+        ctx.fillRect(x + ((col * 5 + 3) % (TILE - 2)), y + ((row * 9 + 1) % (TILE - 2)), 2, 2);
+        ctx.fillRect(x + ((col * 11 + 7) % (TILE - 2)), y + ((row * 13 + 17) % (TILE - 2)), 2, 2);
+        ctx.fillRect(x + ((col * 7 + 15) % (TILE - 2)), y + ((row * 5 + 29) % (TILE - 2)), 2, 2);
+      }
+
+      else if (t === GRASS) {
+        // Dark grass base
+        ctx.fillStyle = '#2a5a1a';
+        ctx.fillRect(x, y, TILE, TILE);
+        // Checkerboard dither for lighter grass texture
+        ctx.fillStyle = '#3a7a2a';
+        for (let py = 0; py < TILE; py += 4) {
+          for (let px = (Math.floor(py / 4) % 2 === 0 ? 0 : 2); px < TILE; px += 4) {
+            ctx.fillRect(x + px, y + py, 2, 2);
+          }
+        }
+        // Grass blade highlights (clamped X so 2×2 blades stay within tile)
+        ctx.fillStyle = '#4a9a3a';
+        ctx.fillRect(x + ((col * 7 + 3) % (TILE - 2)), y + ((row * 11 + 1) % 34), 2, 4);
+        ctx.fillRect(x + ((col * 13 + 5) % (TILE - 2)), y + ((row * 7 + 15) % 34), 2, 4);
+        ctx.fillRect(x + ((col * 3 + 11) % (TILE - 2)), y + ((row * 17 + 5) % 34), 2, 4);
+      }
+
+      else if (t === TREE) {
+        // Grass floor beneath tree
+        ctx.fillStyle = '#2a5a1a';
+        ctx.fillRect(x, y, TILE, TILE);
+        // Trunk (dark brown centred)
+        ctx.fillStyle = '#3d2010';
+        ctx.fillRect(x + 18, y + 28, 4, 12);
+        ctx.fillStyle = '#5a3020';
+        ctx.fillRect(x + 19, y + 28, 2, 12);  // trunk highlight
+        // Layered pixel crown – Monument Valley / Stardew style
+        ctx.fillStyle = '#0a1a05';
+        ctx.fillRect(x + 6,  y + 20, 28, 10); // shadow base
+        ctx.fillStyle = '#1a3a10';
+        ctx.fillRect(x + 8,  y + 14, 24, 10); // lower crown
+        ctx.fillStyle = '#2a6020';
+        ctx.fillRect(x + 11, y + 9,  18, 8);  // mid crown
+        ctx.fillStyle = '#3a8a30';
+        ctx.fillRect(x + 14, y + 4,  12, 7);  // upper crown
+        ctx.fillStyle = '#4aa840';
+        ctx.fillRect(x + 17, y + 1,  6,  5);  // tip
+        // Pixel highlights
+        ctx.fillStyle = '#6ac850';
+        ctx.fillRect(x + 17, y + 1,  2, 2);   // bright tip pixel
+        ctx.fillRect(x + 10, y + 11, 2, 2);   // left highlight
+        ctx.fillRect(x + 27, y + 11, 2, 2);   // right highlight
+      }
+
+      else if (t === ROCK) {
+        // Grass floor beneath rock
+        ctx.fillStyle = '#2a5a1a';
+        ctx.fillRect(x, y, TILE, TILE);
+        // Rock shadow/base (Monument Valley geometric block)
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(x + 6,  y + 22, 28, 12); // cast shadow
+        // Main lit face
+        ctx.fillStyle = '#454545';
+        ctx.fillRect(x + 6,  y + 14, 28, 16); // front face
+        // Top surface (slightly lighter)
+        ctx.fillStyle = '#606060';
+        ctx.fillRect(x + 8,  y + 12, 24, 4);  // top face
+        // Highlight edge (Monument Valley style crisp edge lighting)
+        ctx.fillStyle = '#7a7a7a';
+        ctx.fillRect(x + 8,  y + 12, 24, 2);  // top-edge highlight
+        ctx.fillRect(x + 32, y + 14, 2,  16); // right-edge highlight
+        // Dark crack detail
+        ctx.fillStyle = '#252525';
+        ctx.fillRect(x + 18, y + 16, 2, 10);  // crack
+        // Chip highlight
+        ctx.fillStyle = '#909090';
+        ctx.fillRect(x + 10, y + 14, 2, 2);   // chip
       }
     }
   }
 
-  // Grid lines (subtle)
-  ctx.strokeStyle = 'rgba(0,0,0,0.07)';
-  ctx.lineWidth = 0.5;
+  // Subtle tile-boundary lines (pixel art style)
+  ctx.strokeStyle = 'rgba(0,0,0,0.04)';
+  ctx.lineWidth = 1;
   for (let c = 0; c <= COLS; c++) { ctx.beginPath(); ctx.moveTo(c * TILE, 0); ctx.lineTo(c * TILE, H); ctx.stroke(); }
   for (let r = 0; r <= ROWS; r++) { ctx.beginPath(); ctx.moveTo(0, r * TILE); ctx.lineTo(W, r * TILE); ctx.stroke(); }
 }
@@ -1030,165 +1088,226 @@ function drawMap() {
 function drawPickups() {
   for (const p of pickups) {
     if (p.collected) continue;
-    const bob = Math.sin(animTick * 2.5 + p.x) * 3;
-    ctx.font = '22px serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(p.emoji, p.x, p.y + bob);
-    // Glow
-    ctx.globalAlpha = 0.3 + 0.2 * Math.sin(animTick * 3);
-    ctx.fillStyle = '#fff';
-    ctx.beginPath();
-    ctx.arc(p.x, p.y + bob, 14, 0, Math.PI * 2);
-    ctx.fill();
+    const px = Math.floor(p.x);
+    const py = Math.floor(p.y + Math.sin(animTick * 2.5 + p.x) * 3);
+
+    // Colour-coded glow halo
+    const glowAlpha = 0.25 + 0.15 * Math.sin(animTick * 3);
+    ctx.globalAlpha = glowAlpha;
+    ctx.fillStyle =
+      p.type === 'holy_water' ? '#7cefff' :
+      p.type === 'torch'      ? '#ff8c00' : '#c0c8d0';
+    ctx.fillRect(px - 12, py - 12, 24, 24);
     ctx.globalAlpha = 1;
+
+    drawPixelItem(p.type, px, py);
+  }
+}
+
+// ── Pixel-art item icons ──────────────────────────────────────────────────────
+function drawPixelItem(type, cx, cy) {
+  const x = Math.floor(cx);
+  const y = Math.floor(cy);
+
+  if (type === 'holy_water') {
+    // Flask (8×12 at 2-px blocks)
+    ctx.fillStyle = '#5ab8d0';
+    ctx.fillRect(x - 2, y - 8, 4, 2);   // stopper
+    ctx.fillStyle = '#3a90b0';
+    ctx.fillRect(x - 1, y - 6, 2, 2);   // neck
+    ctx.fillStyle = '#40c0e0';
+    ctx.fillRect(x - 4, y - 4, 8, 8);   // flask body
+    ctx.fillStyle = '#1a8090';
+    ctx.fillRect(x - 4, y - 4, 2, 8);   // left shadow
+    ctx.fillRect(x - 4, y + 3, 8, 1);   // bottom shadow
+    ctx.fillStyle = '#a0f0ff';
+    ctx.fillRect(x + 1, y - 3, 2, 4);   // highlight
+    ctx.fillStyle = '#7cefff';
+    ctx.fillRect(x - 2, y,     4, 2);   // liquid glow
+  }
+
+  else if (type === 'torch') {
+    // Flashlight / torch
+    ctx.fillStyle = '#806040';
+    ctx.fillRect(x - 2, y - 2, 4, 10);  // handle
+    ctx.fillStyle = '#c08040';
+    ctx.fillRect(x - 2, y - 2, 2, 10);  // handle highlight
+    // Flame (animated)
+    ctx.fillStyle = '#ff8c00';
+    ctx.fillRect(x - 3, y - 5, 6, 5);   // flame base
+    ctx.fillStyle = '#ffcc00';
+    ctx.fillRect(x - 2, y - 8, 4, 4);   // flame mid
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(x - 1, y - 10, 2, 3);  // flame tip
+    if (Math.floor(animTick * 8) % 2 === 0) {
+      ctx.fillStyle = '#ff6600';
+      ctx.fillRect(x - 1, y - 6, 2, 2); // flicker detail
+    }
+  }
+
+  else if (type === 'dagger') {
+    // Silver dagger (vertical)
+    ctx.fillStyle = '#c0c8d0';
+    ctx.fillRect(x - 1, y - 10, 2, 12); // blade
+    ctx.fillStyle = '#e8f0f8';
+    ctx.fillRect(x - 1, y - 10, 1, 8);  // blade shine
+    ctx.fillStyle = '#808090';
+    ctx.fillRect(x - 4, y,     8, 2);   // crossguard
+    ctx.fillStyle = '#604020';
+    ctx.fillRect(x - 1, y + 2, 2, 5);   // handle
+    ctx.fillStyle = '#ffd700';
+    ctx.fillRect(x - 1, y + 6, 2, 2);   // pommel
   }
 }
 
 function drawSkeletons() {
   for (const sk of skeletons) {
-    const sx = sk.x + sk.w / 2;
-    const sy = sk.y + sk.h / 2;
+    const sx = Math.floor(sk.x + sk.w / 2);
+    const top = Math.floor(sk.y);
 
     if (!sk.alive) {
       if (sk.flashTimer > 0) {
-        // Death burst
+        // Pixelated death burst (expanding rectangle)
         ctx.globalAlpha = sk.flashTimer * 2;
-        ctx.fillStyle = '#fff';
-        ctx.beginPath();
-        ctx.arc(sx, sy, 26 * (1 - sk.flashTimer * 2), 0, Math.PI * 2);
-        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        const r = Math.floor(18 * (1 - sk.flashTimer * 2));
+        ctx.fillRect(sx - r, top + sk.h / 2 - r, r * 2, r * 2);
         ctx.globalAlpha = 1;
       }
       continue;
     }
 
-    const chasing = sk.mode === 'chase';
-    const wobble  = Math.sin(animTick * (chasing ? 8 : 4) + sx) * 2;
+    const chasing   = sk.mode === 'chase';
+    // 2-frame pixel walk cycle
+    const walkPhase = Math.floor(animTick * (chasing ? 10 : 5)) % 2;
 
-    // Determine colour theme based on alignment visibility
-    // Before talking: neutral grey (can't tell good from bad)
-    // After talking: green for good, red for bad even while patrolling
-    let bodyColour, strokeColour, eyeColour;
+    // Eye colour encodes alignment (Hyper Light Drifter style)
+    let eyeCol;
     if (chasing) {
-      // Always show red while actively chasing
-      bodyColour   = '#f0f0f0';
-      strokeColour = '#ff4444';
-      eyeColour    = '#ff0000';
+      eyeCol = '#ff2020';
     } else if (sk.talked && sk.alignment === 'good') {
-      bodyColour   = '#d0f0d8';
-      strokeColour = '#44aa55';
-      eyeColour    = '#22aa33';
+      eyeCol = '#20ff60';
     } else if (sk.talked && sk.alignment === 'bad') {
-      bodyColour   = '#f0d0d0';
-      strokeColour = '#aa3333';
-      eyeColour    = '#880000';
+      eyeCol = '#ff4040';
     } else {
-      bodyColour   = '#d0d0c0';
-      strokeColour = '#808070';
-      eyeColour    = '#222';
+      eyeCol = '#8888aa';
     }
 
-    // Good-skeleton healing glow (pulse when player is very close)
-    if (sk.alignment === 'good' && !chasing) {
-      const d = dist({ x: player.x + player.w / 2, y: player.y + player.h / 2 },
-                     { x: sx, y: sy });
+    // Alignment glow (pixel rectangle, no arc)
+    if (chasing) {
+      ctx.globalAlpha = 0.14 + 0.08 * Math.sin(animTick * 8);
+      ctx.fillStyle = '#ff2020';
+      ctx.fillRect(sx - 14, top, 28, 32);
+      ctx.globalAlpha = 1;
+    } else if (sk.alignment === 'good') {
+      const d = dist(
+        { x: player.x + player.w / 2, y: player.y + player.h / 2 },
+        { x: sx, y: top + sk.h / 2 }
+      );
       if (d < SKEL_GOOD_HEAL_RANGE * 2) {
-        ctx.globalAlpha = 0.18 + 0.12 * Math.sin(animTick * 5);
-        ctx.fillStyle = '#44ff77';
-        ctx.beginPath();
-        ctx.arc(sx, sy, 20, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.globalAlpha = 0.14 + 0.08 * Math.sin(animTick * 5);
+        ctx.fillStyle = '#20ff60';
+        ctx.fillRect(sx - 14, top, 28, 32);
         ctx.globalAlpha = 1;
       }
     }
 
-    // Shadow
-    ctx.globalAlpha = 0.25;
-    ctx.fillStyle = '#000';
-    ctx.beginPath();
-    ctx.ellipse(sx, sk.y + sk.h + 2, 12, 5, 0, 0, Math.PI * 2);
-    ctx.fill();
+    // Shadow (flat rectangle)
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(sx - 10, top + 30, 20, 4);
     ctx.globalAlpha = 1;
 
-    // Body
-    ctx.fillStyle   = bodyColour;
-    ctx.strokeStyle = strokeColour;
-    ctx.lineWidth   = 1.5;
+    const bone     = '#d0d8e0';
+    const boneDark = '#808890';
 
-    // Torso
-    ctx.fillRect(sx - 7, sk.y + 10 + wobble, 14, 12);
-    ctx.strokeRect(sx - 7, sk.y + 10 + wobble, 14, 12);
+    // ── Skull (rectangular pixel art, not a circle) ────────────────────────
+    ctx.fillStyle = boneDark;
+    ctx.fillRect(sx - 6,  top,      12, 2);   // skull-top border
+    ctx.fillStyle = bone;
+    ctx.fillRect(sx - 8,  top + 2,  16, 8);   // skull body
+    ctx.fillStyle = boneDark;
+    ctx.fillRect(sx - 8,  top + 2,  2,  8);   // left cheek shadow
+    ctx.fillRect(sx + 6,  top + 2,  2,  8);   // right cheek shadow
 
-    // Skull
-    ctx.beginPath();
-    ctx.arc(sx, sk.y + 7 + wobble, 9, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
+    // Eye sockets (2×2 pixel blocks each)
+    ctx.fillStyle = eyeCol;
+    ctx.fillRect(sx - 5,  top + 4,  4, 4);    // left eye
+    ctx.fillRect(sx + 1,  top + 4,  4, 4);    // right eye
 
-    // Eye sockets
-    ctx.fillStyle = eyeColour;
-    ctx.fillRect(sx - 5, sk.y + 4 + wobble, 4, 4);
-    ctx.fillRect(sx + 1,  sk.y + 4 + wobble, 4, 4);
+    // Nose hole
+    ctx.fillStyle = boneDark;
+    ctx.fillRect(sx - 1,  top + 7,  2, 2);
 
-    // Legs
-    ctx.strokeStyle = strokeColour;
-    ctx.lineWidth = 2;
-    const legSwing = Math.sin(animTick * (chasing ? 10 : 5) + sx) * 6;
-    // Left leg
-    ctx.beginPath();
-    ctx.moveTo(sx - 4, sk.y + 22 + wobble);
-    ctx.lineTo(sx - 4, sk.y + 32 + wobble + legSwing);
-    ctx.stroke();
-    // Right leg
-    ctx.beginPath();
-    ctx.moveTo(sx + 4, sk.y + 22 + wobble);
-    ctx.lineTo(sx + 4, sk.y + 32 + wobble - legSwing);
-    ctx.stroke();
+    // ── Jaw / teeth ────────────────────────────────────────────────────────
+    ctx.fillStyle = bone;
+    ctx.fillRect(sx - 6,  top + 10, 12, 3);
+    ctx.fillStyle = boneDark;
+    ctx.fillRect(sx - 4,  top + 10, 2, 2);    // tooth gap
+    ctx.fillRect(sx,      top + 10, 2, 2);
+    ctx.fillRect(sx + 2,  top + 10, 2, 2);
 
-    // Arms
-    const armSwing = Math.sin(animTick * (chasing ? 9 : 4.5) + sy) * 8;
-    ctx.beginPath();
-    ctx.moveTo(sx - 7, sk.y + 13 + wobble);
-    ctx.lineTo(sx - 14, sk.y + 20 + wobble + armSwing);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(sx + 7, sk.y + 13 + wobble);
-    ctx.lineTo(sx + 14, sk.y + 20 + wobble - armSwing);
-    ctx.stroke();
+    // ── Torso (ribcage) ────────────────────────────────────────────────────
+    ctx.fillStyle = boneDark;
+    ctx.fillRect(sx - 7,  top + 13, 14, 9);   // outline
+    ctx.fillStyle = bone;
+    ctx.fillRect(sx - 5,  top + 14, 10, 7);   // fill
+    // Rib lines
+    ctx.fillStyle = boneDark;
+    ctx.fillRect(sx - 4,  top + 15, 8, 1);
+    ctx.fillRect(sx - 4,  top + 17, 8, 1);
+    ctx.fillRect(sx - 4,  top + 19, 8, 1);
 
-    // Sight ring when chasing
+    // ── Arms (animated) ────────────────────────────────────────────────────
+    ctx.fillStyle = bone;
+    ctx.fillRect(sx - 9,  top + 14, 4, 6 + walkPhase);       // left arm
+    ctx.fillRect(sx + 5,  top + 14, 4, 6 + (1 - walkPhase)); // right arm
+
+    // ── Pelvis ─────────────────────────────────────────────────────────────
+    ctx.fillStyle = boneDark;
+    ctx.fillRect(sx - 5,  top + 22, 10, 2);
+
+    // ── Legs (2-frame walk animation) ──────────────────────────────────────
+    const legExt = walkPhase * 2;
+    ctx.fillStyle = bone;
+    ctx.fillRect(sx - 5,  top + 24, 4, 6 + legExt);          // left leg
+    ctx.fillRect(sx + 1,  top + 24, 4, 6 + (2 - legExt));    // right leg
+    // Feet
+    ctx.fillStyle = boneDark;
+    ctx.fillRect(sx - 6,  top + 28 + legExt,       6, 2);    // left foot
+    ctx.fillRect(sx + 1,  top + 28 + (2 - legExt), 6, 2);    // right foot
+
+    // Sight ring when chasing (kept as arc for legibility)
     if (chasing) {
       ctx.globalAlpha = 0.12;
       ctx.strokeStyle = '#ff4444';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.arc(sx, sy, SKEL_SIGHT, 0, Math.PI * 2);
+      ctx.arc(sx, top + sk.h / 2, SKEL_SIGHT, 0, Math.PI * 2);
       ctx.stroke();
       ctx.globalAlpha = 1;
     }
 
-    // Labels above the skeleton when the player is within talk range
+    // Label above skeleton when player is in talk range
     if (!dialogueActive && state === 'play') {
       const pc = { x: player.x + player.w / 2, y: player.y + player.h / 2 };
-      if (dist(pc, { x: sx, y: sy }) < SKEL_TALK_RANGE) {
+      if (dist(pc, { x: sx, y: top + sk.h / 2 }) < SKEL_TALK_RANGE) {
         ctx.font = 'bold 10px "Courier New", monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
         ctx.globalAlpha = 0.85 + 0.15 * Math.sin(animTick * 4);
 
         if (sk.talked) {
-          // Show alignment badge after having spoken to this skeleton
           if (sk.alignment === 'good') {
             ctx.fillStyle = '#66ff88';
-            ctx.fillText('✨ Friendly', sx, sk.y - 4);
+            ctx.fillText('✨ Friendly', sx, top - 4);
           } else {
             ctx.fillStyle = '#ff6666';
-            ctx.fillText('☠ Hostile', sx, sk.y - 4);
+            ctx.fillText('☠ Hostile', sx, top - 4);
           }
         } else {
           ctx.fillStyle = '#ffe066';
-          ctx.fillText('[T] Talk', sx, sk.y - 4);
+          ctx.fillText('[T] Talk', sx, top - 4);
         }
         ctx.globalAlpha = 1;
       }
@@ -1197,70 +1316,128 @@ function drawSkeletons() {
 }
 
 function drawPlayer() {
-  const px = player.x + player.w / 2;
-  const py = player.y + player.h / 2;
+  const cx  = Math.floor(player.x + player.w / 2);
+  const top = Math.floor(player.y);
 
   // Invincibility flash
   if (player.invincible > 0 && Math.floor(player.invincible * 8) % 2 === 0) return;
 
-  // Shadow
-  ctx.globalAlpha = 0.25;
-  ctx.fillStyle = '#000';
-  ctx.beginPath();
-  ctx.ellipse(px, player.y + player.h + 2, 12, 5, 0, 0, Math.PI * 2);
-  ctx.fill();
+  const isMoving = keys['a'] || keys['d'] || keys['w'] || keys['s'] ||
+    keys['arrowleft'] || keys['arrowright'] || keys['arrowup'] || keys['arrowdown'];
+  // Discrete 1-px bob for pixel art feel
+  const bob = isMoving ? (Math.floor(animTick * 6) % 2 === 0 ? 1 : 0) : 0;
+  const t = top + bob;  // bobbed Y origin
+
+  // Shadow (flat rectangle)
+  ctx.globalAlpha = 0.3;
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(cx - 8, top + 29, 16, 4);
   ctx.globalAlpha = 1;
 
-  // Body (simple adventurer figure)
-  const bob = Math.sin(animTick * 6) * 1.5 *
-    ((keys['a'] || keys['d'] || keys['w'] || keys['s'] ||
-      keys['arrowleft'] || keys['arrowright'] || keys['arrowup'] || keys['arrowdown']) ? 1 : 0);
+  if (player.facing === 'up') {
+    // ── Back view (walking away) ─────────────────────────────────────────────
+    // Hat
+    ctx.fillStyle = '#111118';
+    ctx.fillRect(cx - 5,  t,      10, 3);   // hat top
+    ctx.fillRect(cx - 7,  t + 2,  14, 2);   // hat brim
+    // Back of head / hair (dark purple à la Hyper Light Drifter)
+    ctx.fillStyle = '#2a1060';
+    ctx.fillRect(cx - 5,  t + 4,  10, 6);
+    // Shoulders
+    ctx.fillStyle = '#0d0820';
+    ctx.fillRect(cx - 8,  t + 10, 16, 2);
+    // Coat back
+    ctx.fillRect(cx - 6,  t + 12, 12, 8);
+    // Neon-pink side trim (HLD signature)
+    ctx.fillStyle = '#e040fb';
+    ctx.fillRect(cx - 6,  t + 12, 2,  8);   // left trim
+    ctx.fillRect(cx + 4,  t + 12, 2,  8);   // right trim
+    // Legs
+    ctx.fillStyle = '#0d0820';
+    ctx.fillRect(cx - 5,  t + 20, 4,  7 + (walkCycle(1)));  // left
+    ctx.fillRect(cx + 1,  t + 20, 4,  7 + (walkCycle(0)));  // right
+    // Boots
+    ctx.fillStyle = '#1a1060';
+    ctx.fillRect(cx - 5,  t + 26, 4,  2);
+    ctx.fillRect(cx + 1,  t + 26, 4,  2);
+  } else {
+    // ── Front / side view ────────────────────────────────────────────────────
+    // Hat
+    ctx.fillStyle = '#111118';
+    ctx.fillRect(cx - 5,  t,      10, 3);   // hat crown
+    ctx.fillRect(cx - 7,  t + 2,  14, 2);   // hat brim
+    // Hat band accent (gold)
+    ctx.fillStyle = '#ffcc00';
+    ctx.fillRect(cx - 5,  t + 2,  10, 1);
 
-  // Cloak
-  ctx.fillStyle = '#5c3317';
-  ctx.beginPath();
-  ctx.moveTo(px - 10, player.y + 14 + bob);
-  ctx.lineTo(px - 12, player.y + player.h + 2 + bob);
-  ctx.lineTo(px + 12, player.y + player.h + 2 + bob);
-  ctx.lineTo(px + 10, player.y + 14 + bob);
-  ctx.closePath();
-  ctx.fill();
+    // Face / skin
+    ctx.fillStyle = '#f0c490';
+    ctx.fillRect(cx - 5,  t + 4,  10, 6);   // face
+    // Face shadow
+    ctx.fillStyle = '#d4a070';
+    ctx.fillRect(cx - 5,  t + 9,  10, 1);   // chin shadow
 
-  // Torso
-  ctx.fillStyle = '#8B4513';
-  ctx.fillRect(px - 8, player.y + 10 + bob, 16, 14);
+    // Eyes (2×2 pixel blocks, position depends on facing)
+    ctx.fillStyle = '#111118';
+    if (player.facing === 'left') {
+      ctx.fillRect(cx - 5, t + 6, 2, 2);    // left eye
+      ctx.fillRect(cx - 1, t + 6, 2, 2);    // right eye
+    } else if (player.facing === 'right') {
+      ctx.fillRect(cx - 1, t + 6, 2, 2);
+      ctx.fillRect(cx + 3,  t + 6, 2, 2);
+    } else {
+      // down
+      ctx.fillRect(cx - 4, t + 6, 2, 2);
+      ctx.fillRect(cx + 2,  t + 6, 2, 2);
+    }
 
-  // Head
-  ctx.fillStyle = '#ffd5a8';
-  ctx.beginPath();
-  ctx.arc(px, player.y + 7 + bob, 8, 0, Math.PI * 2);
-  ctx.fill();
+    // Shoulders / upper coat
+    ctx.fillStyle = '#0d0820';
+    ctx.fillRect(cx - 8,  t + 10, 16, 2);   // shoulder bar
+    ctx.fillRect(cx - 6,  t + 12, 12, 6);   // upper coat
 
-  // Eyes based on facing
-  ctx.fillStyle = '#222';
-  if (player.facing === 'down' || player.facing === 'right') {
-    ctx.fillRect(px - 3, player.y + 5 + bob, 2, 3);
-    ctx.fillRect(px + 1,  player.y + 5 + bob, 2, 3);
-  } else if (player.facing === 'up') {
-    // facing away – show back of head
-    ctx.fillStyle = '#5c3317';
-    ctx.beginPath();
-    ctx.arc(px, player.y + 7 + bob, 8, 0, Math.PI * 2);
-    ctx.fill();
+    // Neon-pink side trim (HLD)
+    ctx.fillStyle = '#e040fb';
+    ctx.fillRect(cx - 6,  t + 12, 2,  6);   // left
+    ctx.fillRect(cx + 4,  t + 12, 2,  6);   // right
+
+    // Cyan belt (HLD accent)
+    ctx.fillStyle = '#40c4ff';
+    ctx.fillRect(cx - 5,  t + 18, 10, 2);
+
+    // Lower coat
+    ctx.fillStyle = '#0d0820';
+    ctx.fillRect(cx - 6,  t + 20, 12, 2);
+    // Bottom trim
+    ctx.fillStyle = '#e040fb';
+    ctx.fillRect(cx - 6,  t + 21, 12, 1);
+
+    // Legs (2-frame walk)
+    ctx.fillStyle = '#0d0820';
+    ctx.fillRect(cx - 5,  t + 22, 4, 6 + walkCycle(1));  // left
+    ctx.fillRect(cx + 1,  t + 22, 4, 6 + walkCycle(0));  // right
+    // Boots
+    ctx.fillStyle = '#1a1060';
+    ctx.fillRect(cx - 5,  t + 27, 4, 2);                 // left boot
+    ctx.fillRect(cx + 1,  t + 27, 4, 2);                 // right boot
+    // Boot toes (1 px wider)
+    ctx.fillRect(cx - 6,  t + 28, 2, 1);
+    ctx.fillRect(cx + 5,  t + 28, 2, 1);
   }
 
-  // Hat
-  ctx.fillStyle = '#222';
-  ctx.fillRect(px - 9, player.y + 1 + bob, 18, 4);
-  ctx.fillRect(px - 5, player.y - 5 + bob, 10, 8);
-
-  // Held item indicator
+  // Held item icon (pixel art)
   if (player.heldItem) {
-    ctx.font = '16px serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(player.heldItem.emoji, px + 14, player.y + 10 + bob);
+    drawPixelItem(player.heldItem.type, cx + 14, top + 10 + bob);
   }
+}
+
+// Return 0 or 1 pixel extension for the given walk animation phase (0 or 1)
+function walkCycle(phase) {
+  const isMoving = keys['a'] || keys['d'] || keys['w'] || keys['s'] ||
+    keys['arrowleft'] || keys['arrowright'] || keys['arrowup'] || keys['arrowdown'];
+  if (!isMoving) return 0;
+  const currentPhase = Math.floor(animTick * 8) % 2;
+  return (currentPhase === phase) ? 1 : 0;
 }
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
