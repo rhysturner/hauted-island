@@ -1027,3 +1027,12 @@ h1 {
   border-color: #7a4aaa;
 }
 
+
+/* ── Strudel soundtrack editor (hidden) ─────────────────────────────────────── */
+#strudel-soundtrack {
+  visibility: hidden;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
