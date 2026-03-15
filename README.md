@@ -54,28 +54,10 @@ saved in your browser's `localStorage` so you only need to enter it once.
 ## Files
 
 ```
-index.html    – Game page and HUD
-style.css     – Styling and overlay
-game.js       – All game logic (canvas rendering, AI, collision, LLM dialogue)
-soundtrack.js – Strudel.js adaptive synthesiser soundtrack
+index.html   – Game page and HUD
+style.css    – Styling and overlay
+game.js      – All game logic (canvas rendering, AI, collision, LLM dialogue)
 ```
-
-## Soundtrack (Strudel.js)
-
-The game features a dynamic, **Stranger Things**-inspired synthesiser soundtrack
-powered by [Strudel.js](https://strudel.cc).  All music is generated live in the
-browser using D-minor sawtooth and square wave oscillators — no audio files are
-downloaded.
-
-| Game state | Music |
-|------------|-------|
-| Playing (peaceful) | Slow arpeggios, reverb-drenched pads |
-| Playing (skeleton chasing!) | Driving, tense pulse at higher tempo |
-| Player dies | Dissonant descending motif |
-| Escaped! | Bright triumphant resolution |
-
-Music starts when you click **Start Game** (required by browser audio policy).
-It adapts in real-time as skeletons enter or leave chase mode.
 
 ## Inspiration
 
