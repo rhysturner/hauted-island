@@ -425,7 +425,9 @@ const apiKeyModal  = document.getElementById('api-key-modal');
 const apiKeyInput  = document.getElementById('api-key-input');
 const apiKeySave   = document.getElementById('api-key-save');
 const apiKeyCancel = document.getElementById('api-key-cancel');
-const LS_KEY       = 'hauted-island-gemini-key';
+const LS_KEY            = 'hauted-island-gemini-key';
+const LS_TOKEN_BUDGET   = 'hauted-island-token-budget';
+const TOKEN_BUDGET_DEFAULT = 1500;
 
 function showApiKeyModal(onSave) {
   apiKeyInput.value = '';
@@ -465,15 +467,18 @@ function showApiKeyModal(onSave) {
 }
 
 // ── Settings modal ────────────────────────────────────────────────────────────
-const settingsModal    = document.getElementById('settings-modal');
-const settingsApiKey   = document.getElementById('settings-api-key');
-const settingsSaveBtn  = document.getElementById('settings-save');
-const settingsCloseBtn = document.getElementById('settings-close');
-const settingsBtn      = document.getElementById('settings-btn');
+const settingsModal       = document.getElementById('settings-modal');
+const settingsApiKey      = document.getElementById('settings-api-key');
+const settingsTokenBudget = document.getElementById('settings-token-budget');
+const settingsSaveBtn     = document.getElementById('settings-save');
+const settingsCloseBtn    = document.getElementById('settings-close');
+const settingsBtn         = document.getElementById('settings-btn');
 
 function openSettings() {
   const saved = localStorage.getItem(LS_KEY) || '';
   settingsApiKey.value = saved;
+  const savedBudget = localStorage.getItem(LS_TOKEN_BUDGET);
+  settingsTokenBudget.value = savedBudget !== null ? savedBudget : TOKEN_BUDGET_DEFAULT;
   settingsModal.classList.remove('hidden');
   settingsApiKey.focus();
 }
@@ -490,6 +495,12 @@ settingsSaveBtn.addEventListener('click', () => {
     localStorage.setItem(LS_KEY, key);
   } else {
     localStorage.removeItem(LS_KEY);
+  }
+  const budget = parseInt(settingsTokenBudget.value, 10);
+  if (!isNaN(budget) && budget > 0) {
+    localStorage.setItem(LS_TOKEN_BUDGET, budget);
+  } else {
+    localStorage.removeItem(LS_TOKEN_BUDGET);
   }
   closeSettings();
 });
@@ -544,6 +555,8 @@ async function callGemini(sk, apiKey, playerMessage) {
   }
 
   try {
+    const savedBudget = parseInt(localStorage.getItem(LS_TOKEN_BUDGET), 10);
+    const maxOutputTokens = (!isNaN(savedBudget) && savedBudget > 0) ? savedBudget : TOKEN_BUDGET_DEFAULT;
     const res = await fetch(
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent',
       {
@@ -554,7 +567,7 @@ async function callGemini(sk, apiKey, playerMessage) {
         },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 140, temperature: 1.0 },
+          generationConfig: { maxOutputTokens, temperature: 1.0 },
         }),
       }
     );

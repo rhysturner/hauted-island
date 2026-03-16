@@ -67,6 +67,11 @@
         <input type="password" id="settings-api-key" placeholder="AIza…" autocomplete="off" />
         <p class="settings-hint"><small>Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a></small></p>
       </div>
+      <div class="settings-row">
+        <label for="settings-token-budget">💬 NPC Token Budget</label>
+        <input type="number" id="settings-token-budget" min="100" max="8192" step="100" placeholder="1500" />
+        <p class="settings-hint"><small>Max tokens per NPC response (default: 1500)</small></p>
+      </div>
       <div class="api-key-buttons">
         <button id="settings-save">Save</button>
         <button id="settings-close">Close</button>
