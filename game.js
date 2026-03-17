@@ -215,6 +215,7 @@ const SKELETON_DATA = [
 ];
 
 function makeSkeleton(x, y, name, personality) {
+  const alignment = Math.random() < 0.5 ? 'good' : 'bad';
   return {
     x, y,
     px: x, py: y,
@@ -224,9 +225,10 @@ function makeSkeleton(x, y, name, personality) {
     attackTimer: 0,
     alive: true,
     flashTimer: 0,
-    name:        name        || 'Unknown Skeleton',
-    personality: personality || 'mysterious and silent',
-    alignment:   Math.random() < 0.5 ? 'good' : 'bad',  // randomly assigned
+    name:             name        || 'Unknown Skeleton',
+    personality:      personality || 'mysterious and silent',
+    alignment,                           // randomly assigned
+    aggressionRating: alignment === 'bad' ? 10 : 0,  // 0 (friendly) – 10 (hostile)
     talked:      false,   // has the player held a dialogue with this skeleton?
     helpTimer:   0,       // cooldown for healing the player (good alignment only)
   };
@@ -361,6 +363,7 @@ startBtn.addEventListener('click', () => {
 // ── Dialogue UI ───────────────────────────────────────────────────────────────
 const dialoguePanel     = document.getElementById('dialogue-panel');
 const dialogueName      = document.getElementById('dialogue-name');
+const dialogueAggression = document.getElementById('dialogue-aggression');
 const dialogueText      = document.getElementById('dialogue-text');
 const dialogueHint      = document.getElementById('dialogue-hint');
 const dialogueInputWrap = document.getElementById('dialogue-input-wrap');
@@ -378,6 +381,7 @@ function openDialogue(sk) {
   dialogueInputWrap.classList.add('hidden');
   dialogueInput.value = '';
   dialogueHint.textContent = '';
+  updateAggressionIndicator(sk);
   dialoguePanel.classList.remove('hidden');
 }
 
@@ -390,6 +394,19 @@ function closeDialogue() {
   dialoguePanel.classList.add('hidden');
   dialogueInputWrap.classList.add('hidden');
   dialogueInput.value = '';
+  dialogueAggression.classList.add('hidden');
+}
+
+// Renders the aggression rating bar for the given skeleton in the dialogue panel
+function updateAggressionIndicator(sk) {
+  if (!sk) { dialogueAggression.classList.add('hidden'); return; }
+  const r = sk.aggressionRating;
+  const filled = Math.max(0, Math.min(10, Math.floor(r)));
+  const bar = '█'.repeat(filled) + '░'.repeat(10 - filled);
+  const color = r <= 2 ? '#44ff88' : r <= 5 ? '#ffcc44' : '#ff5555';
+  dialogueAggression.innerHTML =
+    `<span style="color:${color}" title="Aggression: ${r}/10">☠ ${bar} ${r}/10</span>`;
+  dialogueAggression.classList.remove('hidden');
 }
 
 // Called when the skeleton's greeting arrives from the LLM
@@ -590,11 +607,13 @@ async function callGemini(sk, apiKey, playerMessage) {
       if (moodMatch) {
         const newAlignment = moodMatch[1].toLowerCase() === 'friendly' ? 'good' : 'bad';
         sk.alignment = newAlignment;
+        sk.aggressionRating = newAlignment === 'good' ? 0 : 10;
         if (newAlignment === 'good' && sk.mode === 'chase') {
           sk.mode = 'patrol';
           pickPatrolTarget(sk);
         }
         text = text.replace(/\[MOOD:(friendly|hostile)\]/gi, '').trim();
+        updateAggressionIndicator(sk);
       }
       sk.talked = true;
       setDialogueResponse(text);
@@ -654,7 +673,9 @@ function submitPlayerReply() {
     sk.talked = true;
     const happy = Math.random() < 0.5;
     sk.alignment = happy ? 'good' : 'bad';
+    sk.aggressionRating = happy ? 0 : 10;
     if (happy && sk.mode === 'chase') { sk.mode = 'patrol'; pickPatrolTarget(sk); }
+    updateAggressionIndicator(sk);
     setDialogueResponse(happy
       ? '…the skeleton seems pleased by your words.'
       : '…the skeleton\'s eyes glow red with anger.');
