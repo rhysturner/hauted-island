@@ -150,12 +150,28 @@ h1 {
   display: none;
 }
 
+#dialogue-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
 #dialogue-speaker {
   color: #b06fff;
   font-weight: bold;
   font-size: 0.95rem;
-  margin-bottom: 8px;
   text-shadow: 0 0 8px #7a00ff;
+}
+
+#dialogue-aggression {
+  font-size: 0.78rem;
+  font-family: 'Courier New', Courier, monospace;
+  letter-spacing: 0.02em;
+}
+
+#dialogue-aggression.hidden {
+  display: none;
 }
 
 #dialogue-text {
@@ -721,7 +737,6 @@ h1 {
   color: #b06fff;
   font-weight: bold;
   font-size: 0.95rem;
-  margin-bottom: 8px;
   text-shadow: 0 0 8px #7a00ff;
 }
 
